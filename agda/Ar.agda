@@ -10,7 +10,7 @@ open import Data.Product as Prod using (∃; _,_; _×_; proj₁; proj₂)
 open import Data.List as L using (List; []; _∷_; foldl)
 open import Data.List.Properties using (∷ʳ-injective; ++-cancelʳ)
 open import Data.List.Relation.Unary.All as All using (All; []; _∷_)
-open import Relation.Binary.PropositionalEquality
+open import Relation.Binary.PropositionalEquality as P hiding ([_])
 open import Relation.Nullary
 open import Data.Empty
 open import Function
@@ -24,8 +24,11 @@ module _ where
   S = List ℕ
   P = All Fin
 
-  ι : ℕ → S
-  ι n = n ∷ []
+  -- ι : ℕ → S
+  -- ι n = n ∷ []
+
+  [_] : ℕ → S
+  [_] n = n ∷ []
 
   variable
     m n k : ℕ
@@ -206,10 +209,10 @@ module _ where
   split-inj₁ : (i : Fin (m + n)) (k : Fin m) → splitAt m i ≡ inj₁ k → inject+′ _ k ≡ i
   split-inj₁ {suc m} zero .zero refl = refl
   split-inj₁ {suc m} (suc i) zero p with splitAt m i | inspect (splitAt m) i
-  split-inj₁ {suc m} (suc i) zero () | inj₁ x | [ r ]
-  split-inj₁ {suc m} (suc i) zero () | inj₂ y | [ r ]
+  split-inj₁ {suc m} (suc i) zero () | inj₁ x | P.[_] r
+  split-inj₁ {suc m} (suc i) zero () | inj₂ y | P.[_] r
   split-inj₁ {suc m} (suc i) (suc k) p with splitAt m i | inspect (splitAt m) i
-  split-inj₁ {suc m} (suc i) (suc .x) refl | inj₁ x | [ r ] = cong suc (split-inj₁ i x r)
+  split-inj₁ {suc m} (suc i) (suc .x) refl | inj₁ x | P.[_] r = cong suc (split-inj₁ i x r)
 
   inj₁₂ : {A B : Set}{x : A}{y : B} → inj₁ x ≡ inj₂ y → ⊥
   inj₁₂ ()
@@ -224,8 +227,8 @@ module _ where
   _⊝_ : (i : Fin (m + n)) (j : Fin m)
       → Dec (∃ λ k → j ⊕ k ≡ i)
   _⊝_ {suc m} {n} i zero rewrite +-comm m n with splitAt (suc n) i | inspect (splitAt (suc n)) i
-  ... | inj₁ k | [ r ] = yes (k , split-inj₁ i k r)
-  ... | inj₂ k | [ r ] = no reason
+  ... | inj₁ k | P.[_] r = yes (k , split-inj₁ i k r)
+  ... | inj₂ k | P.[_] r = no reason
     where
       reason : _
       reason (k , refl) rewrite splitAt-inject+′ (suc n) m k = inj₁₂ r

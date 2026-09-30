@@ -49,7 +49,7 @@ module _ where
   env-wk-zero : Env Γ Δ → Γ ⊆ Ψ → Env Ψ Δ
   env-wk-zero ρ ε = ρ
   env-wk-zero ρ (skip {is = ix x} w) = skip (env-wk-zero ρ w)
-  env-wk-zero ρ (skip {is = ar x} w) = env-wk-zero ρ w ▹ zero
+  env-wk-zero ρ (skip {is = ar x} w) = env-wk-zero ρ w ▹ 𝟘
   env-wk-zero (skip ρ) (keep {is = ix x} w) = skip (env-wk-zero ρ w)
   env-wk-zero (ρ ▹ x₁) (keep {is = ar x} w) = env-wk-zero ρ w ▹ x₁
 
@@ -65,7 +65,7 @@ module _ where
   zero-env : Env Γ Δ
   zero-env {ε} = ε
   zero-env {Γ ▹ ix x} = skip zero-env
-  zero-env {Γ ▹ ar x} = zero-env ▹ zero
+  zero-env {Γ ▹ ar x} = zero-env ▹ 𝟘
 
   zero-ee : EE Γ Δ
   zero-ee = env (zero-env)
@@ -82,7 +82,7 @@ module _ where
   env-map-sum : Env Γ (Δ ▹ ix s) → Env Γ Δ
   env-map-sum ε = ε
   env-map-sum (skip ρ) = skip (env-map-sum ρ)
-  env-map-sum (ρ ▹ x) = env-map-sum ρ ▹ E.sum x
+  env-map-sum (ρ ▹ x) = env-map-sum ρ ▹ Lang.sum x
 
   -- ee-fold : EE Γ Δ → Env Γ Δ
   -- ee-fold (env x) = x
@@ -212,28 +212,28 @@ module _ where
   -- maximum (sels (e ↑) (var v₀))
   grad {is = ix _} (var x) s δ = δ
   grad {is = ar _} (var x) s δ = ee-update+ δ x s
-  grad zero s δ = δ
-  grad one s δ = δ
+  grad 𝟘 s δ = δ
+  grad 𝟙 s δ = δ
 
   grad (imaps e)              s δ = grad-sum e (sels     (s ↑) (var v₀)) δ -- why?
-  grad (imap e)               s δ = grad-sum e (sel      (s ↑) (var v₀)) δ
-  grad (E.imapb m e)          s δ = grad-sum e (E.selb m (s ↑) (var v₀)) δ
+  grad (imap′ refl e)               s δ = grad-sum e (sel      (s ↑) (var v₀)) δ
+  grad (Lang.imapb m e)          s δ = grad-sum e (Lang.selb m (s ↑) (var v₀)) δ
 
   grad (sels e i)             s δ = grad e (imaps     (zero-but (var v₀) (i ↑) (s ↑))) δ
-  grad (sel e i)              s δ = grad e (imap      (zero-but (var v₀) (i ↑) (s ↑))) δ
-  grad (E.selb m e i)         s δ = grad e (E.imapb m (zero-but (var v₀) (i ↑) (s ↑))) δ
+  grad (sel′ refl e i)              s δ = grad e (imap      (zero-but (var v₀) (i ↑) (s ↑))) δ
+  grad (Lang.selb m e i)         s δ = grad e (Lang.imapb m (zero-but (var v₀) (i ↑) (s ↑))) δ
 
-  grad (E.sum e)              s δ = grad-sum e (s ↑) δ
+  grad (Lang.sum e)              s δ = grad-sum e (s ↑) δ
   grad (zero-but i j e)       s δ = grad e (zero-but i j s) δ
 
-  grad (E.slide i p e su)     s δ = grad e (E.backslide i s su p) δ
-  grad (E.backslide i e su p) s δ = grad e (E.slide i p s su) δ
+  -- grad (Lang.slide i p e su)     s δ = grad e (Lang.backslide i s su p) δ
+  -- grad (Lang.backslide i e su p) s δ = grad e (Lang.slide i p s su) δ
 
   grad (e ⊞ e₁)               s   = grad e s ∘ grad e₁ s
   grad (e ⊠ e₁)               s   = grad e (s ⊠ e₁) ∘ grad e₁ (e ⊠ s)
   grad (scaledown x e)        s   = grad e (scaledown x s)
   grad (⊟ e)                  s   = grad e (⊟ s)
-  grad (logi e)               s   = grad e (let′ (logi e) ((s ↑) ⊠ var v₀ ⊠ (one ⊞ ⊟ (var v₀))))
+  -- grad (logi e)               s   = grad e (let′ (logi e) ((s ↑) ⊠ var v₀ ⊠ (one ⊞ ⊟ (var v₀))))
 
   grad (let′ e e₁) s δ =
     let
@@ -242,9 +242,9 @@ module _ where
     in t
 
   -- Jairo made
-  grad (relu e)               s δ = grad e ((𝕀+ e) ⊠ s) δ -- is this correct?
-  grad (𝕀+ e)                 s δ = grad e 𝟘 δ -- is this correct?
-  grad (sqrt e)               s δ = grad e (s // (𝟚 ⊠ sqrt e)) δ
+  grad (relu e)               s δ = grad e ((𝕚+ e) ⊠ s) δ -- is this correct?
+  grad (𝕚+ e)                 s δ = grad e 𝟘 δ -- is this correct?
+  grad (√ e)               s δ = grad e (s // (𝟚 ⊠ √ e)) δ
   grad (𝟙/ e)                 s δ = grad e (⊟ (( 𝟙/ e) ⊠ (s // e))) δ
   grad (ln e)                 s δ = grad e (s // e) δ
   grad (ℙ e)                  s δ =
@@ -254,7 +254,7 @@ module _ where
       tails = ee-tail ∘ ee-tail ∘ ee-tail
       lets = λ x → let′ (ℙ e) ( --v2
                 let′ (s ↑) ( --v1
-                let′ (E.sum $ sels (var v₁ ⊠ var v₂) (var v₀)) x)) --v0
+                let′ (Lang.sum $ sels (var v₁ ⊠ var v₂) (var v₀)) x)) --v0
     in (tails ∘ lets) $ grad (wk w e) (var v₂ ⊠ (var v₁ ⊟ (imaps $ var v₁))) δ'
 
   grad-last′ v e (env ρ) = let

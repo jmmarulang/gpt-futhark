@@ -50,20 +50,20 @@ module _ where
     return (fresh-name c)
 
 
-  bop : Bop -> String
-  bop plus = "+"
-  bop mul = "*"
+  -- bop : Bop -> String
+  -- bop plus = "+"
+  -- bop mul = "*"
 
-  uop : Uop → String
-  uop logistic = "log"
-  uop neg = "-"
-  -- uop exp = "exp"
-  uop rectifier = "relu"
-  uop squared = "sqrt"
-  uop inverse = "inv"
-  uop ind-positive = "ind-positive"
-  uop logarithm = "ln"
-  uop softmax = "softmax"
+  uopf : Uop → String
+  uopf logistic = "log"
+  uopf neg = "-"
+  -- uopf exp = "exp"
+  uopf rectifier = "relu"
+  uopf squared = "sqrt"
+  uopf inverse = "inv"
+  uopf ind-positive = "ind-positive"
+  uopf logarithm = "ln"
+  uopf softmax = "softmax"
 
   pars : Bool → String → String
   pars true = printf "(%s)"
@@ -88,26 +88,26 @@ module _ where
     a ← ppx (1 + precApp) e ρ
     i ← ppx (1 + precApp) e₁ ρ
     return (pars (does (p >? precApp)) $ printf "sels %s %s" a i)
-  ppx p (imap e) ρ = do
+  ppx p (imap′ refl e) ρ = do
     iv ← fresh-var
     a ← ppx 0 e (ρ , iv)
     return (pars (does (p >? precImap)) (printf "imap λ %s → %s" iv a))
-  ppx p (sel e e₁) ρ = do
+  ppx p (sel′ refl e e₁) ρ = do
     a ← ppx (1 + precApp) e ρ
     i ← ppx (1 + precApp) e₁ ρ
     return (pars (does (p >? precApp)) $ printf "sel %s %s" a i)
 
-  ppx p (E.imapb x e) ρ = do
+  ppx p (Lang.imapb x e) ρ = do
     iv ← fresh-var
     a ← ppx 0 e (ρ , iv)
     return (pars (does (p >? precImap)) (printf "imapb λ %s → %s" iv a))
 
-  ppx p (E.selb x e e₁) ρ = do
+  ppx p (Lang.selb x e e₁) ρ = do
     a ← ppx (1 + precApp) e ρ
     i ← ppx (1 + precApp) e₁ ρ
     return (pars (does (p >? precApp)) $ printf "selb %s %s" a i)
 
-  ppx p (E.sum e) ρ = do
+  ppx p (Lang.sum e) ρ = do
     iv ← fresh-var
     a ← ppx 0 e (ρ , iv)
     return (pars (does (p >? precImap)) (printf "sum λ %s → %s" iv a))
@@ -118,15 +118,15 @@ module _ where
     c ← ppx (1 + precApp) e₂ ρ
     return (pars (does (p >? precApp)) $ printf "(zero-but %s %s %s)" a b c)
 
-  ppx p (E.slide e x e₁ x₁) ρ = do
-    a ← ppx (1 + precApp) e ρ
-    b ← ppx (1 + precApp) e₁ ρ
-    return (pars (does (p >? precApp)) $ printf "slide %s %s" a b)
+  -- ppx p (Lang.slide e x e₁ x₁) ρ = do
+  --   a ← ppx (1 + precApp) e ρ
+  --   b ← ppx (1 + precApp) e₁ ρ
+  --   return (pars (does (p >? precApp)) $ printf "slide %s %s" a b)
 
-  ppx p (E.backslide e e₁ x x₁) ρ = do
-    a ← ppx (1 + precApp) e ρ
-    b ← ppx (1 + precApp) e₁ ρ
-    return (pars (does (p >? precApp)) $ printf "backslide %s %s" a b)
+  -- ppx p (Lang.backslide e e₁ x x₁) ρ = do
+  --   a ← ppx (1 + precApp) e ρ
+  --   b ← ppx (1 + precApp) e₁ ρ
+  --   return (pars (does (p >? precApp)) $ printf "backslide %s %s" a b)
 
   ppx p (e ⊞ e₁) ρ = do
     a ← ppx (precAdd) e ρ
@@ -148,16 +148,9 @@ module _ where
     b ← ppx precLet e₁ (ρ , x)
     return (pars (does (p >? precLet)) $ printf "let %s = %s in\n%s" x a b)
 
-  ppx p (un x e) ρ = do
+  ppx p (uop x e) ρ = do
     a ← ppx (1 + precApp) e ρ
-    return (pars (does (p >? precApp)) $ printf "(%s %s)" (uop x) a)
-
-  -- ppx p (argmax sn e) ρ = do
-  --   -- iv ← fresh-var
-  --   a ← ppx 0 e ρ
-  --   a ← ppx 0 e ρ
-  --   return (pars (does (p >? precImap)) (printf "argmax %s" a))
-
+    return (pars (does (p >? precApp)) $ printf "(%s %s)" (uopf x) a)
 
   pp : E Γ is → FEnv Γ → State ℕ (Sem is)
   pp = ppx 0

@@ -104,8 +104,8 @@ module Extract where
   ee-inline (let′ e ρ) with δ ← ee-inline ρ | ee-count-uses δ v₀ | ee-count-sels δ v₀ | e
   ... | 0 | _ | _ = ee-sub δ (sub-id ▹ inline e) -- does nothing?
   ... | _ | _ | var b = ee-sub δ (sub-id ▹ var b)
-  ... | _ | _ | zero = ee-sub δ (sub-id ▹ zero)
-  ... | _ | _ | one = ee-sub δ (sub-id ▹ one)
+  ... | _ | _ | 𝟘 = ee-sub δ (sub-id ▹ 𝟘)
+  ... | _ | _ | 𝟙 = ee-sub δ (sub-id ▹ 𝟙)
   ... | 1 | 1 | _ = ee-sub δ (sub-id ▹ inline e)
   -- ... | 1 | 0 | _ = ee-sub δ (sub-id ▹ inline e)
   ... | _ | _ | _ = let′ (inline e) δ
@@ -192,7 +192,7 @@ module Extract where
   -- and generates the Futhark code for the variable names
   -- passed through NamedEnv
   pp : E Γ (ar s) → NamedEnv Γ → String
-  pp e ρ = ee-fut ({- env-norm-lets $ -} grad e one zero-ee) ρ
+  pp e ρ = ee-fut ({- env-norm-lets $ -} grad e 𝟙 zero-ee) ρ
 
   -- nodedup-pp : E Γ (ar s) → NamedEnv Γ → String
   -- nodedup-pp e ρ = nodedup-ee-fut ({- env-norm-lets $ -} grad e one zero-ee) ρ
@@ -233,51 +233,51 @@ module Extract where
     ee-pretty e ρ = pretty-ee (ee-clean e) ρ
 
     pretty : E Γ (ar s) → NamedEnv Γ → String
-    pretty e ρ = ee-pretty ({- env-norm-lets $ -} grad e one zero-ee) ρ
+    pretty e ρ = ee-pretty ({- env-norm-lets $ -} grad e 𝟙 zero-ee) ρ
 
     seed-pretty : E Γ (ar s) → E Γ (ar s) → NamedEnv Γ → String
     seed-pretty e s ρ = ee-pretty ({- env-norm-lets $ -} grad e s zero-ee) ρ
 
   -- Examples
   -- ========
-  conv-e : E _ _
-  conv-e = Lcon (ar (5 ∷ 5 ∷ []) ∷ ar (2 ∷ 2 ∷ []) ∷ []) (ar (4 ∷ 4 ∷ [])) ε
-           λ img k1 → Let t := Primitives.Cnn.conv img k1 In
-                      logi t -- wrapped inside a logistic?
+  -- conv-e : E _ _
+  -- conv-e = Lcon (ar (5 ∷ 5 ∷ []) ∷ ar (2 ∷ 2 ∷ []) ∷ []) (ar (4 ∷ 4 ∷ [])) ε
+  --          λ img k1 → Let t := Primitives.Cnn.conv img k1 In
+  --                     logi t -- wrapped inside a logistic?
 
-  grad-conv-e = pp conv-e (ε ▹ "img" ▹ "k1")
+  -- grad-conv-e = pp conv-e (ε ▹ "img" ▹ "k1")
 
-  grad-conv-s = pp conv-e (ε ▹ "inp" ▹ "k1") -- whats the difference?
+  -- grad-conv-s = pp conv-e (ε ▹ "inp" ▹ "k1") -- whats the difference?
 
-  compc1 : E _ _
-  compc1 =  Lcon (  ar (28 ∷ 28 ∷ []) ∷ ar (6 ∷ 5 ∷ 5 ∷ [])
-                  ∷ ar (6 ∷ []) ∷ ar (12 ∷ 6 ∷ 5 ∷ 5 ∷ [])
-                  ∷ ar (12 ∷ []) ∷ [])
+  -- compc1 : E _ _
+  -- compc1 =  Lcon (  ar (28 ∷ 28 ∷ []) ∷ ar (6 ∷ 5 ∷ 5 ∷ [])
+  --                 ∷ ar (6 ∷ []) ∷ ar (12 ∷ 6 ∷ 5 ∷ 5 ∷ [])
+  --                 ∷ ar (12 ∷ []) ∷ [])
 
-                  --(ar (12 ∷ 1 ∷ 8 ∷ 8 ∷ [])) ε
-                  (ar (12 ∷ 1 ∷ 8 ∷ 8 ∷ [])) ε
-            λ inp k₁ b₁ k₂ b₂ →
-            Let c₁₁ := Primitives.Cnn.mconv inp k₁ b₁  In
-            Let c₁ := logi c₁₁ In
-            Let s₁  := (Imap {s = 6 ∷ []} λ i → Primitives.Cnn.avgp₂ 12 12 (sel c₁ i)) In
-            Let c₂₁ := Primitives.Cnn.mconv s₁ k₂ b₂ In
-            c₂₁
+  --                 --(ar (12 ∷ 1 ∷ 8 ∷ 8 ∷ [])) ε
+  --                 (ar (12 ∷ 1 ∷ 8 ∷ 8 ∷ [])) ε
+  --           λ inp k₁ b₁ k₂ b₂ →
+  --           Let c₁₁ := Primitives.Cnn.mconv inp k₁ b₁  In
+  --           Let c₁ := logi c₁₁ In
+  --           Let s₁  := (Imap {s = 6 ∷ []} λ i → Primitives.Cnn.avgp₂ 12 12 (sel c₁ i)) In
+  --           Let c₂₁ := Primitives.Cnn.mconv s₁ k₂ b₂ In
+  --           c₂₁
 
-  grad-compc1-e = ee-opt (grad compc1 one zero-ee)
-  grad-compc1-s = pp compc1 (ε ▹ "inp" ▹ "k1" ▹ "b1" ▹ "k2" ▹ "b2")
+  -- grad-compc1-e = ee-opt (grad compc1 one zero-ee)
+  -- grad-compc1-s = pp compc1 (ε ▹ "inp" ▹ "k1" ▹ "b1" ▹ "k2" ▹ "b2")
 
-  sum-let : E _ _
-  sum-let = Lcon (ar (5 ∷ []) ∷ ar (5 ∷ []) ∷ []) (ar []) ε
-            λ a b → Sum λ i → (Let x := sels a i ⊞ sels b i In x ⊠ x)
-  sum-let-s = pp sum-let (ε ▹ "a" ▹ "b")
+  -- sum-let : E _ _
+  -- sum-let = Lcon (ar (5 ∷ []) ∷ ar (5 ∷ []) ∷ []) (ar []) ε
+  --           λ a b → Sum λ i → (Let x := sels a i ⊞ sels b i In x ⊠ x)
+  -- sum-let-s = pp sum-let (ε ▹ "a" ▹ "b")
 
   -- grad-test-e = ee-opt (grad test-e (var v₀) zero-ee)
   -- grad-test-s = ee-fut (grad test-e (var v₀) zero-ee) (ε ▹ "x" ▹ "s" )
 
-  grad-cnn-e = ee-OPT (grad Primitives.Cnn.cnn one zero-ee)
+  -- grad-cnn-e = ee-OPT (grad Primitives.Cnn.cnn one zero-ee)
 
-  -- This is our CNN example from the paper.
-  grad-cnn-s = pp Primitives.Cnn.cnn (ε ▹ "inp" ▹ "k1" ▹ "b1" ▹ "k2" ▹ "b2" ▹ "fc" ▹ "b" ▹ "target" )
+  -- -- This is our CNN example from the paper.
+  -- grad-cnn-s = pp Primitives.Cnn.cnn (ε ▹ "inp" ▹ "k1" ▹ "b1" ▹ "k2" ▹ "b2" ▹ "fc" ▹ "b" ▹ "target" )
 
   -- Jairo made
 
@@ -302,7 +302,7 @@ module Extract where
   grad-div-pp : String
   grad-div-pp = Pretty.pretty Primitives.Microgpt.div-e (ε ▹ "x" ▹ "y")
 
-  grad-mgpt-loss-e = ee-OPT $ ee-dedup $ ee-OPT (grad Primitives.Microgpt.mgpt-loss-e one zero-ee)
+  grad-mgpt-loss-e = ee-OPT $ ee-dedup $ ee-OPT (grad Primitives.Microgpt.mgpt-loss-e 𝟙 zero-ee)
 
   mgpt-loss-s : String
   mgpt-loss-s = proj₂ (runState (to-str (multiopt Primitives.Microgpt.mgpt-loss-e OPT) ((from-named (ε ▹ "mask" ▹ "wpe" ▹ "wqry" ▹ "wkey" ▹ "wval" ▹ "wout" ▹ "wup" ▹ "wdown" ▹ "wvoc" ▹ "wseq" ▹ "target")))) 0)

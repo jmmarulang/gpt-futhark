@@ -43,7 +43,6 @@ ah = 4      # number of attention heads
 hd = ed // ah # derived dimension of each head
 big_num = 1000000000000000000000000000000000000000
 
-
 # -------------------------------------
 # DEFINE TORCH MODEL
 torch_model = mt.GPT().double()
