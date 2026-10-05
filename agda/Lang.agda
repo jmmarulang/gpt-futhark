@@ -697,6 +697,7 @@ module Primitives where
       --Let loss := avg losses In loss
       avg losses
 
+
     ED = [ 16 ] ; AH = [ 4 ] ; HD = [ 4 ] ; SL = [ 16 ] ; FD = [ 64 ] ; SC = 2 ; VO = [ 27 ]
 
     PR : AH * HD ≈ ED

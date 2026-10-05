@@ -7,6 +7,8 @@ open Extract
 open import Data.String
 open import Lang
 open import IO
+open import Data.Bool
+open import Relation.Binary.PropositionalEquality
 
 main : Main
 -- main = run (putStrLn imap-sum-zerobut-s)
