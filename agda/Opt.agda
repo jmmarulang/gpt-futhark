@@ -656,7 +656,8 @@ module Opt (r : Real) (rp : RealProp r) where
   danger-opt e =
     -- (opt e .proj₁)
     -- danger-opt' $
-    sels-in $ let-out $ sum-in $ (opt e .proj₁)
+    -- sels-in $ let-out $ sum-in $
+    (opt e .proj₁)
 
   -- opt : (e : E Γ is) → ∃ λ e′ → (e ≈ᵉ e′)
   -- -- var

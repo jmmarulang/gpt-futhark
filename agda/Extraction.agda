@@ -238,90 +238,26 @@ module Extract where
     seed-pretty : E Γ (ar s) → E Γ (ar s) → NamedEnv Γ → String
     seed-pretty e s ρ = ee-pretty ({- env-norm-lets $ -} grad e s zero-ee) ρ
 
-  -- Examples
-  -- ========
-  -- conv-e : E _ _
-  -- conv-e = Lcon (ar (5 ∷ 5 ∷ []) ∷ ar (2 ∷ 2 ∷ []) ∷ []) (ar (4 ∷ 4 ∷ [])) ε
-  --          λ img k1 → Let t := Primitives.Cnn.conv img k1 In
-  --                     logi t -- wrapped inside a logistic?
+  open Primitives
+  open Microgpt
 
-  -- grad-conv-e = pp conv-e (ε ▹ "img" ▹ "k1")
+  grad-gpt-loss-e = ee-OPT $ ee-dedup $ ee-OPT (grad gpt-loss-e 𝟙 zero-ee)
 
-  -- grad-conv-s = pp conv-e (ε ▹ "inp" ▹ "k1") -- whats the difference?
+  gpt-loss-s : String
+  gpt-loss-s = proj₂ (runState (to-str (multiopt gpt-loss-e OPT) ((from-named (ε ▹ "mask" ▹ "wpe" ▹ "wqry" ▹ "wkey" ▹ "wval" ▹ "wout" ▹ "wup" ▹ "wdown" ▹ "wvoc" ▹ "wseq" ▹ "target")))) 0)
 
-  -- compc1 : E _ _
-  -- compc1 =  Lcon (  ar (28 ∷ 28 ∷ []) ∷ ar (6 ∷ 5 ∷ 5 ∷ [])
-  --                 ∷ ar (6 ∷ []) ∷ ar (12 ∷ 6 ∷ 5 ∷ 5 ∷ [])
-  --                 ∷ ar (12 ∷ []) ∷ [])
+  gpt-forward-s : String
+  gpt-forward-s = proj₂ (runState (to-str ( multiopt gpt-forward-e OPT) (from-named (ε ▹ "wp" ▹ "wkey" ▹ "wqry" ▹ "wval" ▹ "wo" ▹ "mask" ▹ "wu" ▹ "wd" ▹ "wc" ▹ "ws"))) 0)
 
-  --                 --(ar (12 ∷ 1 ∷ 8 ∷ 8 ∷ [])) ε
-  --                 (ar (12 ∷ 1 ∷ 8 ∷ 8 ∷ [])) ε
-  --           λ inp k₁ b₁ k₂ b₂ →
-  --           Let c₁₁ := Primitives.Cnn.mconv inp k₁ b₁  In
-  --           Let c₁ := logi c₁₁ In
-  --           Let s₁  := (Imap {s = 6 ∷ []} λ i → Primitives.Cnn.avgp₂ 12 12 (sel c₁ i)) In
-  --           Let c₂₁ := Primitives.Cnn.mconv s₁ k₂ b₂ In
-  --           c₂₁
-
-  -- grad-compc1-e = ee-opt (grad compc1 one zero-ee)
-  -- grad-compc1-s = pp compc1 (ε ▹ "inp" ▹ "k1" ▹ "b1" ▹ "k2" ▹ "b2")
-
-  -- sum-let : E _ _
-  -- sum-let = Lcon (ar (5 ∷ []) ∷ ar (5 ∷ []) ∷ []) (ar []) ε
-  --           λ a b → Sum λ i → (Let x := sels a i ⊞ sels b i In x ⊠ x)
-  -- sum-let-s = pp sum-let (ε ▹ "a" ▹ "b")
-
-  -- grad-test-e = ee-opt (grad test-e (var v₀) zero-ee)
-  -- grad-test-s = ee-fut (grad test-e (var v₀) zero-ee) (ε ▹ "x" ▹ "s" )
-
-  -- grad-cnn-e = ee-OPT (grad Primitives.Cnn.cnn one zero-ee)
-
-  -- -- This is our CNN example from the paper.
-  -- grad-cnn-s = pp Primitives.Cnn.cnn (ε ▹ "inp" ▹ "k1" ▹ "b1" ▹ "k2" ▹ "b2" ▹ "fc" ▹ "b" ▹ "target" )
-
-  -- Jairo made
-
-  grad-rmsnorm-s : String
-  grad-rmsnorm-s = pp Primitives.Microgpt.rmsnorm-e (ε ▹ "inp")
-
-  grad-rmsnorm-pp : String
-  grad-rmsnorm-pp = Pretty.pretty Primitives.Microgpt.rmsnorm-e (ε ▹ "inp")
-
-  -- test-s : String
-  -- test-s = proj₂ (runState (to-str (multiopt Primitives.Microgpt.test-e OPT) (from-named (ε ▹ "f"))) 0)
-
-  grad-id-pp : String
-  grad-id-pp = Pretty.pretty Primitives.Microgpt.id-e (ε ▹ "inp")
-
-  grad-softmax-pp : String
-  grad-softmax-pp = Pretty.seed-pretty Primitives.Microgpt.softmax-e (var v₁) (ε ▹ "f'" ▹ "f")
-
-  -- grad-maximum-pp : String
-  -- grad-maximum-pp = Pretty.seed-pretty Primitives.Microgpt.maximum-e (var v₁) (ε ▹ "j" ▹ "inp")
-
-  grad-div-pp : String
-  grad-div-pp = Pretty.pretty Primitives.Microgpt.div-e (ε ▹ "x" ▹ "y")
-
-  grad-mgpt-loss-e = ee-OPT $ ee-dedup $ ee-OPT (grad Primitives.Microgpt.mgpt-loss-e 𝟙 zero-ee)
-
-  mgpt-loss-s : String
-  mgpt-loss-s = proj₂ (runState (to-str (multiopt Primitives.Microgpt.mgpt-loss-e OPT) ((from-named (ε ▹ "mask" ▹ "wpe" ▹ "wqry" ▹ "wkey" ▹ "wval" ▹ "wout" ▹ "wup" ▹ "wdown" ▹ "wvoc" ▹ "wseq" ▹ "target")))) 0)
-
-  mgpt-forward-s : String
-  mgpt-forward-s = proj₂ (runState (to-str ( multiopt Primitives.Microgpt.mgpt-forward-e OPT) (from-named (ε ▹ "mask" ▹ "wpe" ▹ "wqry" ▹ "wkey" ▹ "wval" ▹ "wout" ▹ "wup" ▹ "wdown" ▹ "wvoc" ▹ "wseq"))) 0)
-
-  mgpt-forward-pp : String
-  mgpt-forward-pp = proj₂ (runState (PP.pp (multiopt Primitives.Microgpt.mgpt-forward-e OPT) ((((((((((_ , "mask") , "wpe") , "wqry") , "wkey") , "wval") , "wout") , "wup") , "wdown") , "wvoc") , "wseq")) 0)
+  gpt-forward-pp : String
+  gpt-forward-pp = proj₂ (runState (PP.pp (multiopt gpt-forward-e OPT) ((((((((((_ , "mask") , "wpe") , "wqry") , "wkey") , "wval") , "wout") , "wup") , "wdown") , "wvoc") , "wseq")) 0)
 
 
-  grad-mgpt-loss-s : String
-  grad-mgpt-loss-s = pp Primitives.Microgpt.mgpt-loss-e
+  grad-gpt-loss-s : String
+  grad-gpt-loss-s = pp gpt-loss-e
     (ε ▹ "mask" ▹ "wpe" ▹ "wqry" ▹ "wkey" ▹ "wval" ▹ "wout" ▹ "wup"
        ▹ "wdown" ▹ "wvoc" ▹ "wseq" ▹ "target")
 
-  grad-mgpt-loss-pp = Pretty.pretty Primitives.Microgpt.mgpt-loss-e
+  grad-gpt-loss-pp = Pretty.pretty gpt-loss-e
     (ε ▹ "mask" ▹ "wpe" ▹ "wqry" ▹ "wkey" ▹ "wval" ▹ "wout" ▹ "wup"
        ▹ "wdown" ▹ "wvoc" ▹ "wseq" ▹ "target")
-
-  -- grad-inv : String
-  -- grad-inv = Pretty.pretty (Lcon {!   !} {!   !} {!   !} {!   !}) {!   !}

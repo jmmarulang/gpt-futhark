@@ -55,15 +55,14 @@ module _ where
   -- bop mul = "*"
 
   uopf : Uop → String
-  uopf logistic = "log"
-  uopf neg = "-"
-  -- uopf exp = "exp"
-  uopf rectifier = "relu"
-  uopf squared = "sqrt"
-  uopf inverse = "inv"
-  uopf ind-positive = "ind-positive"
-  uopf logarithm = "ln"
-  uopf softmax = "softmax"
+  uopf neg-op = "-"
+  uopf relu-op = "relu"
+  uopf sqrt-op = "sqrt"
+  uopf inv-op = "inv"
+  uopf indp-op = "ind-positive"
+  uopf ln-op = "ln"
+  uopf softmax-op = "softmax"
+  uopf (scaledown-op x) = printf "scaledown %u" x
 
   pars : Bool → String → String
   pars true = printf "(%s)"

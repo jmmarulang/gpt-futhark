@@ -85,8 +85,8 @@ head_dim = n_embd // n_head # derived dimension of each head
 learning_rate, beta1, beta2, eps_adam = 0.01, 0.85, 0.99, 1e-8
 
 def forward(token_id, pos_id, state_dict, keys, values):
-    tok_emb = state_dict['wte'][token_id] # token embedding
-    pos_emb = state_dict['wpe'][pos_id] # position embedding
+    tok_emb = state_dict['wt'][token_id] # token embedding
+    pos_emb = state_dict['wp'][pos_id] # position embedding
     x = [t + p for t, p in zip(tok_emb, pos_emb)] # joint token and position embedding
     x = rmsnorm(x) # note: not redundant due to backward pass via the residual connection
 
@@ -110,17 +110,17 @@ def forward(token_id, pos_id, state_dict, keys, values):
             attn_weights = softmax(attn_logits)
             head_out = [sum(attn_weights[t] * v_h[t][j] for t in range(len(v_h))) for j in range(head_dim)]
             x_attn.extend(head_out)
-        x = linear(x_attn, state_dict['wout'])
+        x = linear(x_attn, state_dict['wo'])
         x = [a + b for a, b in zip(x, x_residual)]
         # 2) MLP block
         x_residual = x
         x = rmsnorm(x)
-        x = linear(x, state_dict['wup'])
+        x = linear(x, state_dict['wp'])
         x = [xi.relu() for xi in x]
-        x = linear(x, state_dict['wdown'])
+        x = linear(x, state_dict['wd'])
         x = [a + b for a, b in zip(x, x_residual)]
 
-    logits = linear(x, state_dict['wvoc'])
+    logits = linear(x, state_dict['wc'])
     return logits
 
 def forward_seq(seq_ids, pwdic):
