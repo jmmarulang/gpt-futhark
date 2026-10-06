@@ -80,7 +80,6 @@ for k , dim in dimdic.items():
     fvdic[k] = np.zeros(dim)
     pmdic[k] = np.zeros(dim)
     pvdic[k] = np.zeros(dim)
-    pwdic[k] = np.zeros(dim)
 
 fwdic['wt'] = twdict['token_embedding_table.weight'].copy()
 fwdic['wp'] = twdict['position_embedding_table.weight'].copy()
@@ -89,12 +88,12 @@ fwdic['wu'] = twdict['blocks.0.ffwd.net.0.weight'].copy()
 fwdic['wd'] = twdict['blocks.0.ffwd.net.2.weight'].copy()
 fwdic['wc'] = twdict['lm_head.weight'].copy()
 
-pwdic['wt'] = fwdic['wt'].copy()
-pwdic['wp'] = fwdic['wp'].copy()
-pwdic['wo'] = fwdic['wo'].copy()
-pwdic['wu'] = fwdic['wu'].copy()
-pwdic['wd'] = fwdic['wd'].copy()
-pwdic['wc'] = fwdic['wc'].copy()
+pwdic['wt'] = twdict['token_embedding_table.weight'].copy()
+pwdic['wp'] = twdict['position_embedding_table.weight'].copy()
+pwdic['wo'] = twdict['blocks.0.sa_heads.proj.weight'].copy()
+pwdic['wu'] = twdict['blocks.0.ffwd.net.0.weight'].copy()
+pwdic['wd'] = twdict['blocks.0.ffwd.net.2.weight'].copy()
+pwdic['wc'] = twdict['lm_head.weight'].copy()
 pwdic['wkey'] = np.zeros((dimdic['wkey'][0]*dimdic['wkey'][1],dimdic['wkey'][2])).copy()
 pwdic['wqry'] = np.zeros((dimdic['wqry'][0]*dimdic['wqry'][1],dimdic['wqry'][2])).copy()
 pwdic['wval'] = np.zeros((dimdic['wval'][0]*dimdic['wval'][1],dimdic['wval'][2])).copy()
@@ -155,10 +154,10 @@ with futhark_server.Server(futhark) as server:
 # futhark_probs = np.array([softmax(logits) for logits in futhark_logits])
 # futhark_probs = futhark_probs[: dl]
 
-# # Python
+# # # Python
 python_logits = mp.forward_seq(python_tokens, pwdic)
 python_logits = np.array([[val.data for val in logits] for logits in python_logits])
-# python_probs = np.array([softmax(logits) for logits in python_logits])
+python_probs = np.array([softmax(logits) for logits in python_logits])
 
 #### Torch
 torch_tokens = torch.tensor([python_tokens], dtype=torch.long)
@@ -168,7 +167,7 @@ with torch.no_grad():
 torch_logits = torch_logits.numpy()[0]
 # torch_probs = np.array([softmax(logits) for logits in torch_logits])
 
-print(futhark_logits.shape)
+# print(futhark_logits.shape)
 print(torch_logits.shape)
 #-------------------------------------
 # TESTS
@@ -222,13 +221,13 @@ while True:
     python_data = python_logits[index]
     torch_data = torch_logits[index]
 
-    br1 = np.arange(len(futhark_data))
+    br1 = np.arange(len(python_data))
     br2 = [x + barWidth for x in br1]
     br3 = [x + barWidth for x in br2]
     plt.bar(br1, futhark_data, width=barWidth, label="futhark")
     plt.bar(br2, python_data, width=barWidth, label="python")
     plt.bar(br3, torch_data, width=barWidth, label="torch")
-    plt.xticks([r + barWidth for r in range(len(futhark_data))], vocab)
+    plt.xticks([r + barWidth for r in range(len(python_data))], vocab)
     plt.xlabel('next token probability', fontsize = 12)
     plt.legend()
     plt.savefig('figures/main_' + "".join(doc) + "_index_" + str(index) + "_seed_" + str(seed) + "_iter_" + str(num_steps) + "_matrix_" +  '_.png')

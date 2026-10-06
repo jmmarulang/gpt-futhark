@@ -115,7 +115,7 @@ def forward(token_id, pos_id, state_dict, keys, values):
         # 2) MLP block
         x_residual = x
         x = rmsnorm(x)
-        x = linear(x, state_dict['wp'])
+        x = linear(x, state_dict['wu'])
         x = [xi.relu() for xi in x]
         x = linear(x, state_dict['wd'])
         x = [a + b for a, b in zip(x, x_residual)]
