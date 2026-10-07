@@ -11,4 +11,4 @@ export UR_L0_ENABLE_SYSMAN_ENV_DEFAULT=0
 
 futhark c -v --server futhark/microgptX.fut
 
-# python main.py
+python mainX.py

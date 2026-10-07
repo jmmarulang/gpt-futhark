@@ -11,12 +11,8 @@ open import Data.Bool
 open import Relation.Binary.PropositionalEquality
 
 main : Main
--- main = run (putStrLn imap-sum-zerobut-s)
--- main = run (putStrLn Extract.unblock-tok-s)
-main = run (putStrLn Extract.gpt-forward-s)
+main = run (putStrLn Extract.bgpt-forward-s)
+-- main = run (putStrLn Extract.mgpt-forward-s)
 -- main = run (putStrLn Extract.mgpt-loss-s)
 -- main = run (putStrLn grad-gpt-loss-s)
 -- main = run (putStrLn grad-mgpt-loss-pp)
--- main = run (putStrLn grad-rmsnorm-s)
--- main = run (putStrLn grad-rmsnorm-pp)
--- main = run (putStrLn Extract.grad-cnn-s)
