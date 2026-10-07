@@ -243,19 +243,11 @@ module Extract where
 
   -- grad-gpt-loss-e = ee-OPT $ ee-dedup $ ee-OPT (grad gpt-loss-e 𝟙 zero-ee)
 
-  -- gpt-loss-s : String
-  -- gpt-loss-s = proj₂ (runState (to-str (multiopt gpt-loss-e OPT) ((from-named (ε ▹ "mask" ▹ "wpe" ▹ "wqry" ▹ "wkey" ▹ "wval" ▹ "wout" ▹ "wup" ▹ "wdown" ▹ "wvoc" ▹ "wseq" ▹ "target")))) 0)
-
-  mgpt-forward-s : String
-  mgpt-forward-s = proj₂ (runState (to-str ( multiopt mgpt-forward-e OPT)
+  bgpt-loss-s : String
+  bgpt-loss-s = proj₂ (runState (to-str ( multiopt bgpt-loss-e OPT)
     (from-named
       (ε ▹ "wp" ▹ "wkey" ▹ "wqry" ▹ "wval" ▹ "wo"
-         ▹ "mask" ▹ "wu" ▹ "wd" ▹ "wc" ▹ "ws"))) 0)
-
-  mgpt-forward-pp : String
-  mgpt-forward-pp = proj₂ (runState (PP.pp (multiopt mgpt-forward-e OPT)
-    ((((((((((_ , "mask") , "wpe") , "wqry") , "wkey") , "wval")
-      , "wout") , "wup") , "wdown") , "wvoc") , "wseq")) 0)
+         ▹ "mask" ▹ "wu" ▹ "wd" ▹ "wc" ▹ "ws" ▹ "target"))) 0)
 
   bgpt-forward-s : String
   bgpt-forward-s = proj₂ (runState (to-str ( multiopt bgpt-forward-e OPT)

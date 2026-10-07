@@ -146,94 +146,94 @@ module nn (F: real) = {
     (wo: [16][16]real) (wu: [64][16]real) (wd: [16][64]real)
     (wc: [27][16]real) (ws: [1][16][16]real) ->
 
-(imap1 1 (\i0 -> (let x1 = (imap2 16 16 (\i20 i21 -> (wp[i20][i21] F.+ ws[i0][i20][i21])))
-in (let x2 = (imap1 16 (\i22 -> (let x23 = (imap1 16 (\i27 -> (x1[i22][i27] F.* x1[i22][i27])))
-in (let x24 = ((isum1 16 (\i28 -> x23[i28])) F./ fromi64 16)
-in (let x25 = (F.sqrt (x24 F.+ (one F./ fromi64 100000)))
-in (imap1 16 (\i26 -> (x1[i22][i26] F.* (one F./ x25)))))))))
-in (let x3 = (imap1 16 (\i29 -> (let x30 = (imap1 16 (\i34 -> (x2[i29][i34] F.* x2[i29][i34])))
-in (let x31 = ((isum1 16 (\i35 -> x30[i35])) F./ fromi64 16)
-in (let x32 = (F.sqrt (x31 F.+ (one F./ fromi64 100000)))
-in (imap1 16 (\i33 -> (x2[i29][i33] F.* (one F./ x32)))))))))
-in (let x4 = (imap1 16 (\i36 -> (imap1 16 (\i37 -> (isum1 16 (\i38 -> (wkey[i37][i38] F.* x3[i36][i38])))))))
-in (let x5 = (imap1 16 (\i39 -> (imap1 16 (\i40 -> (isum1 16 (\i41 -> (wqry[i40][i41] F.* x3[i39][i41])))))))
-in (let x6 = (imap1 16 (\i42 -> (imap1 16 (\i43 -> (isum1 16 (\i44 -> (wval[i43][i44] F.* x3[i42][i44])))))))
-in (let x7 = (imap1 4 (\i45 -> (imap1 16 (\i46 -> (imap1 4 (\i47 -> x4[i46][((i45 * 4) + i47)]))))))
-in (let x8 = (imap1 4 (\i48 -> (imap1 16 (\i49 -> (imap1 4 (\i50 -> x5[i49][((i48 * 4) + i50)]))))))
-in (let x9 = (imap1 4 (\i51 -> (imap1 16 (\i52 -> (imap1 4 (\i53 -> x6[i52][((i51 * 4) + i53)]))))))
-in (let x10 = (imap1 4 (\i54 -> (let x55 = (imap1 16 (\i59 -> (imap1 16 (\i60 -> (isum1 4 (\i61 -> (x8[i54][i59][i61] F.* x7[i54][i60][i61])))))))
-in (let x56 = (imap2 16 16 (\i62 i63 -> ((x55[i62][i63] F./ fromi64 2) F.+ mask[i62][i63])))
-in (let x57 = (imap1 16 (\i64 -> (let x66 = (isoftmax1 16 (\i65 -> x56[i64][i65]))
-in (imap1 16 (\i67 -> x66[i67])))))
-in (imap1 16 (\i58 -> (imap1 4 (\i68 -> (isum1 16 (\i69 -> (x57[i58][i69] F.* x9[i54][i69][i68]))))))))))))
-in (let x11 = (imap1 16 (\i70 -> (imap1 16 (\i71 -> x10[(i71 / 4)][i70][(i71 % 4)]))))
-in (let x12 = (imap1 16 (\i72 -> (imap1 16 (\i73 -> (isum1 16 (\i74 -> (wo[i73][i74] F.* x11[i72][i74])))))))
-in (let x13 = (imap2 16 16 (\i75 i76 -> (x12[i75][i76] F.+ x2[i75][i76])))
-in (let x14 = (imap1 16 (\i77 -> (let x78 = (imap1 16 (\i82 -> (x13[i77][i82] F.* x13[i77][i82])))
-in (let x79 = ((isum1 16 (\i83 -> x78[i83])) F./ fromi64 16)
-in (let x80 = (F.sqrt (x79 F.+ (one F./ fromi64 100000)))
-in (imap1 16 (\i81 -> (x13[i77][i81] F.* (one F./ x80)))))))))
-in (let x15 = (imap1 16 (\i84 -> (imap1 64 (\i85 -> (isum1 16 (\i86 -> (wu[i85][i86] F.* x14[i84][i86])))))))
-in (let x16 = (imap2 16 64 (\i87 i88 -> (F.max x15[i87][i88] zero)))
-in (let x17 = (imap1 16 (\i89 -> (imap1 16 (\i90 -> (isum1 64 (\i91 -> (wd[i90][i91] F.* x16[i89][i91])))))))
-in (let x18 = (imap2 16 16 (\i92 i93 -> (x17[i92][i93] F.+ x13[i92][i93])))
-in (imap1 16 (\i19 -> (imap1 27 (\i94 -> (isum1 16 (\i95 -> (wc[i94][i95] F.* x18[i19][i95])))))))))))))))))))))))))))
+(let x0 = (imap2 1 16 (\i22 i23 -> (imap1 16 (\i24 -> (wp[i23][i24] F.+ ws[i22][i23][i24])))))
+in (let x1 = (imap2 1 16 (\i25 i26 -> (let x27 = (imap1 16 (\i31 -> (x0[i25][i26][i31] F.* x0[i25][i26][i31])))
+in (let x28 = ((isum1 16 (\i32 -> x27[i32])) F./ fromi64 16)
+in (let x29 = (F.sqrt (x28 F.+ (one F./ fromi64 100000)))
+in (imap1 16 (\i30 -> (x0[i25][i26][i30] F.* (one F./ x29)))))))))
+in (let x2 = (imap2 1 16 (\i33 i34 -> (let x35 = (imap1 16 (\i39 -> (x1[i33][i34][i39] F.* x1[i33][i34][i39])))
+in (let x36 = ((isum1 16 (\i40 -> x35[i40])) F./ fromi64 16)
+in (let x37 = (F.sqrt (x36 F.+ (one F./ fromi64 100000)))
+in (imap1 16 (\i38 -> (x1[i33][i34][i38] F.* (one F./ x37)))))))))
+in (let x3 = (imap2 1 16 (\i41 i42 -> (imap1 16 (\i43 -> (isum1 16 (\i44 -> (wkey[i43][i44] F.* x2[i41][i42][i44])))))))
+in (let x4 = (imap2 1 16 (\i45 i46 -> (imap1 16 (\i47 -> (isum1 16 (\i48 -> (wqry[i47][i48] F.* x2[i45][i46][i48])))))))
+in (let x5 = (imap2 1 16 (\i49 i50 -> (imap1 16 (\i51 -> (isum1 16 (\i52 -> (wval[i51][i52] F.* x2[i49][i50][i52])))))))
+in (let x6 = (imap2 1 4 (\i53 i54 -> (imap2 16 4 (\i55 i56 -> x3[i53][i55][((i54 * 4) + i56)]))))
+in (let x7 = (imap2 1 4 (\i57 i58 -> (imap2 16 4 (\i59 i60 -> x4[i57][i59][((i58 * 4) + i60)]))))
+in (let x8 = (imap2 1 4 (\i61 i62 -> (imap2 16 4 (\i63 i64 -> x5[i61][i63][((i62 * 4) + i64)]))))
+in (let x9 = (imap2 1 4 (\i65 i66 -> (imap1 16 (\i67 -> (imap1 16 (\i68 -> (isum1 4 (\i69 -> (x7[i65][i66][i67][i69] F.* x6[i65][i66][i68][i69])))))))))
+in (let x10 = (imap2 1 4 (\i70 i71 -> (imap2 16 16 (\i72 i73 -> (x9[i70][i71][i72][i73] F.+ mask[i72][i73])))))
+in (let x11 = (imap2 1 4 (\i74 i75 -> (imap1 16 (\i76 -> (let x78 = (isoftmax1 16 (\i77 -> x10[i74][i75][i76][i77]))
+in (imap1 16 (\i79 -> x78[i79])))))))
+in (let x12 = (imap2 1 4 (\i80 i81 -> (imap1 16 (\i82 -> (imap1 4 (\i83 -> (isum1 16 (\i84 -> (x11[i80][i81][i82][i84] F.* x8[i80][i81][i84][i83])))))))))
+in (let x13 = (imap2 1 16 (\i85 i86 -> (imap1 16 (\i87 -> x12[i85][(i87 / 4)][i86][(i87 % 4)]))))
+in (let x14 = (imap2 1 16 (\i88 i89 -> (imap1 16 (\i90 -> (isum1 16 (\i91 -> (wo[i90][i91] F.* x13[i88][i89][i91])))))))
+in (let x15 = (imap3 1 16 16 (\i92 i93 i94 -> (x14[i92][i93][i94] F.+ x1[i92][i93][i94])))
+in (let x16 = (imap2 1 16 (\i95 i96 -> (let x97 = (imap1 16 (\i101 -> (x15[i95][i96][i101] F.* x15[i95][i96][i101])))
+in (let x98 = ((isum1 16 (\i102 -> x97[i102])) F./ fromi64 16)
+in (let x99 = (F.sqrt (x98 F.+ (one F./ fromi64 100000)))
+in (imap1 16 (\i100 -> (x15[i95][i96][i100] F.* (one F./ x99)))))))))
+in (let x17 = (imap2 1 16 (\i103 i104 -> (imap1 64 (\i105 -> (isum1 16 (\i106 -> (wu[i105][i106] F.* x16[i103][i104][i106])))))))
+in (let x18 = (imap3 1 16 64 (\i107 i108 i109 -> (F.max x17[i107][i108][i109] zero)))
+in (let x19 = (imap2 1 16 (\i110 i111 -> (imap1 16 (\i112 -> (isum1 64 (\i113 -> (wd[i112][i113] F.* x18[i110][i111][i113])))))))
+in (let x20 = (imap3 1 16 16 (\i114 i115 i116 -> (x19[i114][i115][i116] F.+ x15[i114][i115][i116])))
+in (imap1 1 (\i21 -> (imap1 16 (\i117 -> (imap1 27 (\i118 -> (isum1 16 (\i119 -> (wc[i118][i119] F.* x20[i21][i117][i119]))))))))))))))))))))))))))))))
 
 
   def cal_loss : (mask: [16][16]real)
-    -> (wpe: [16][16]real)
+    -> (wp: [16][16]real)
     -> (wqry: [16][16]real)
     -> (wkey: [16][16]real)
     -> (wval: [16][16]real)
-    -> (wout: [16][16]real)
-    -> (wup: [64][16]real)
-    -> (wdown: [16][64]real)
-    -> (wvoc: [27][16]real)
-    -> (wseq: [16][16]real)
-    -> (target: [16][27]real)
+    -> (wo: [16][16]real)
+    -> (wu: [64][16]real)
+    -> (wd: [16][64]real)
+    -> (wc: [27][16]real)
+    -> (ws: [1][16][16]real)
+    -> (target: [1][16][27]real)
     -> real =
     #[unsafe]
-    \(mask: [16][16]real) (wpe: [16][16]real)
+    \(mask: [16][16]real) (wp: [16][16]real)
     (wqry: [16][16]real) (wkey: [16][16]real) (wval: [16][16]real)
-    (wout: [16][16]real) (wup: [64][16]real) (wdown: [16][64]real)
-    (wvoc: [27][16]real) (wseq: [16][16]real) (target: [16][27]real) ->
+    (wo: [16][16]real) (wu: [64][16]real) (wd: [16][64]real)
+    (wc: [27][16]real) (ws: [1][16][16]real) (target: [1][16][27]real) ->
 
-  (let x0 = (imap2 16 16 (\i21 i22 -> (wpe[i21][i22] F.+ wseq[i21][i22])))
-in (let x1 = (imap1 16 (\i23 -> (let x24 = (imap1 16 (\i28 -> (x0[i23][i28] F.* x0[i23][i28])))
-in (let x25 = ((isum1 16 (\i29 -> x24[i29])) F./ fromi64 16)
-in (let x26 = (F.sqrt (x25 F.+ (one F./ fromi64 100000)))
-in (imap1 16 (\i27 -> (x0[i23][i27] F.* (one F./ x26)))))))))
-in (let x2 = (imap1 16 (\i30 -> (let x31 = (imap1 16 (\i35 -> (x1[i30][i35] F.* x1[i30][i35])))
-in (let x32 = ((isum1 16 (\i36 -> x31[i36])) F./ fromi64 16)
-in (let x33 = (F.sqrt (x32 F.+ (one F./ fromi64 100000)))
-in (imap1 16 (\i34 -> (x1[i30][i34] F.* (one F./ x33)))))))))
-in (let x3 = (imap1 16 (\i37 -> (imap1 16 (\i38 -> (isum1 16 (\i39 -> (wqry[i38][i39] F.* x2[i37][i39])))))))
-in (let x4 = (imap1 16 (\i40 -> (imap1 16 (\i41 -> (isum1 16 (\i42 -> (wkey[i41][i42] F.* x2[i40][i42])))))))
-in (let x5 = (imap1 16 (\i43 -> (imap1 16 (\i44 -> (isum1 16 (\i45 -> (wval[i44][i45] F.* x2[i43][i45])))))))
-in (let x6 = (imap1 4 (\i46 -> (imap1 16 (\i47 -> (imap1 4 (\i48 -> x3[i47][((i46 * 4) + i48)]))))))
-in (let x7 = (imap1 4 (\i49 -> (imap1 16 (\i50 -> (imap1 4 (\i51 -> x4[i50][((i49 * 4) + i51)]))))))
-in (let x8 = (imap1 4 (\i52 -> (imap1 16 (\i53 -> (imap1 4 (\i54 -> x5[i53][((i52 * 4) + i54)]))))))
-in (let x9 = (imap1 4 (\i55 -> (let x56 = (imap1 16 (\i60 -> (imap1 16 (\i61 -> (isum1 4 (\i62 -> (x6[i55][i60][i62] F.* x7[i55][i61][i62])))))))
-in (let x57 = (imap2 16 16 (\i63 i64 -> ((x56[i63][i64] F./ fromi64 2) F.+ mask[i63][i64])))
-in (let x58 = (imap1 16 (\i65 -> (let x67 = (isoftmax1 16 (\i66 -> x57[i65][i66]))
-in (imap1 16 (\i68 -> x67[i68])))))
-in (imap1 16 (\i59 -> (imap1 4 (\i69 -> (isum1 16 (\i70 -> (x58[i59][i70] F.* x8[i55][i70][i69]))))))))))))
-in (let x10 = (imap1 16 (\i71 -> (imap1 16 (\i72 -> x9[(i72 / 4)][i71][(i72 % 4)]))))
-in (let x11 = (imap1 16 (\i73 -> (imap1 16 (\i74 -> (isum1 16 (\i75 -> (wout[i74][i75] F.* x10[i73][i75])))))))
-in (let x12 = (imap2 16 16 (\i76 i77 -> (x11[i76][i77] F.+ x1[i76][i77])))
-in (let x13 = (imap1 16 (\i78 -> (let x79 = (imap1 16 (\i83 -> (x12[i78][i83] F.* x12[i78][i83])))
-in (let x80 = ((isum1 16 (\i84 -> x79[i84])) F./ fromi64 16)
-in (let x81 = (F.sqrt (x80 F.+ (one F./ fromi64 100000)))
-in (imap1 16 (\i82 -> (x12[i78][i82] F.* (one F./ x81)))))))))
-in (let x14 = (imap1 16 (\i85 -> (imap1 64 (\i86 -> (isum1 16 (\i87 -> (wup[i86][i87] F.* x13[i85][i87])))))))
-in (let x15 = (imap2 16 64 (\i88 i89 -> (F.max x14[i88][i89] zero)))
-in (let x16 = (imap1 16 (\i90 -> (imap1 16 (\i91 -> (isum1 64 (\i92 -> (wdown[i91][i92] F.* x15[i90][i92])))))))
-in (let x17 = (imap2 16 16 (\i93 i94 -> (x16[i93][i94] F.+ x12[i93][i94])))
-in (let x18 = (imap1 16 (\i95 -> (imap1 27 (\i96 -> (isum1 16 (\i97 -> (wvoc[i96][i97] F.* x17[i95][i97])))))))
-in (let x19 = (imap1 16 (\i98 -> (let x99 = (imap1 27 (\i103 -> (F.log (let x102 = (isoftmax1 27 (\i101 -> x18[i98][i101]))
-in x102[i103]))))
-in (F.neg (isum1 27 (\i100 -> (x99[i100] F.* target[i98][i100])))))))
-in ((isum1 16 (\i20 -> x19[i20])) F./ fromi64 16)))))))))))))))))))))
+((isum1 1 (\i0 -> (let x1 = (imap2 16 16 (\i26 i27 -> (wp[i26][i27] F.+ ws[i0][i26][i27])))
+in (let x2 = (imap1 16 (\i28 -> (let x29 = (imap1 16 (\i33 -> (x1[i28][i33] F.* x1[i28][i33])))
+in (let x30 = ((isum1 16 (\i34 -> x29[i34])) F./ fromi64 16)
+in (let x31 = (F.sqrt (x30 F.+ (one F./ fromi64 100000)))
+in (imap1 16 (\i32 -> (x1[i28][i32] F.* (one F./ x31)))))))))
+in (let x3 = (imap1 16 (\i35 -> (let x36 = (imap1 16 (\i40 -> (x2[i35][i40] F.* x2[i35][i40])))
+in (let x37 = ((isum1 16 (\i41 -> x36[i41])) F./ fromi64 16)
+in (let x38 = (F.sqrt (x37 F.+ (one F./ fromi64 100000)))
+in (imap1 16 (\i39 -> (x2[i35][i39] F.* (one F./ x38)))))))))
+in (let x4 = (imap1 16 (\i42 -> (imap1 16 (\i43 -> (isum1 16 (\i44 -> (wkey[i43][i44] F.* x3[i42][i44])))))))
+in (let x5 = (imap1 16 (\i45 -> (imap1 16 (\i46 -> (isum1 16 (\i47 -> (wqry[i46][i47] F.* x3[i45][i47])))))))
+in (let x6 = (imap1 16 (\i48 -> (imap1 16 (\i49 -> (isum1 16 (\i50 -> (wval[i49][i50] F.* x3[i48][i50])))))))
+in (let x7 = (imap1 4 (\i51 -> (imap1 16 (\i52 -> (imap1 4 (\i53 -> x4[i52][((i51 * 4) + i53)]))))))
+in (let x8 = (imap1 4 (\i54 -> (imap1 16 (\i55 -> (imap1 4 (\i56 -> x5[i55][((i54 * 4) + i56)]))))))
+in (let x9 = (imap1 4 (\i57 -> (imap1 16 (\i58 -> (imap1 4 (\i59 -> x6[i58][((i57 * 4) + i59)]))))))
+in (let x10 = (imap1 4 (\i60 -> (let x61 = (imap1 16 (\i65 -> (imap1 16 (\i66 -> (isum1 4 (\i67 -> (x8[i60][i65][i67] F.* x7[i60][i66][i67])))))))
+in (let x62 = (imap2 16 16 (\i68 i69 -> ((x61[i68][i69] F./ fromi64 2) F.+ mask[i68][i69])))
+in (let x63 = (imap1 16 (\i70 -> (let x72 = (isoftmax1 16 (\i71 -> x62[i70][i71]))
+in (imap1 16 (\i73 -> x72[i73])))))
+in (imap1 16 (\i64 -> (imap1 4 (\i74 -> (isum1 16 (\i75 -> (x63[i64][i75] F.* x9[i60][i75][i74]))))))))))))
+in (let x11 = (imap1 16 (\i76 -> (imap1 16 (\i77 -> x10[(i77 / 4)][i76][(i77 % 4)]))))
+in (let x12 = (imap1 16 (\i78 -> (imap1 16 (\i79 -> (isum1 16 (\i80 -> (wo[i79][i80] F.* x11[i78][i80])))))))
+in (let x13 = (imap2 16 16 (\i81 i82 -> (x12[i81][i82] F.+ x2[i81][i82])))
+in (let x14 = (imap1 16 (\i83 -> (let x84 = (imap1 16 (\i88 -> (x13[i83][i88] F.* x13[i83][i88])))
+in (let x85 = ((isum1 16 (\i89 -> x84[i89])) F./ fromi64 16)
+in (let x86 = (F.sqrt (x85 F.+ (one F./ fromi64 100000)))
+in (imap1 16 (\i87 -> (x13[i83][i87] F.* (one F./ x86)))))))))
+in (let x15 = (imap1 16 (\i90 -> (imap1 64 (\i91 -> (isum1 16 (\i92 -> (wu[i91][i92] F.* x14[i90][i92])))))))
+in (let x16 = (imap2 16 64 (\i93 i94 -> (F.max x15[i93][i94] zero)))
+in (let x17 = (imap1 16 (\i95 -> (imap1 16 (\i96 -> (isum1 64 (\i97 -> (wd[i96][i97] F.* x16[i95][i97])))))))
+in (let x18 = (imap2 16 16 (\i98 i99 -> (x17[i98][i99] F.+ x13[i98][i99])))
+in (let x19 = (imap1 16 (\i100 -> (imap1 27 (\i101 -> (isum1 16 (\i102 -> (wc[i101][i102] F.* x18[i100][i102])))))))
+in ((isum1 16 (\i20 -> (let x21 = (imap1 27 (\i25 -> (F.log (let x24 = (isoftmax1 27 (\i23 -> x19[i20][i23]))
+in x24[i25]))))
+in (F.neg (isum1 27 (\i22 -> (x21[i22] F.* target[i0][i20][i22]))))))) F./ fromi64 16)))))))))))))))))))))) F./ fromi64 1)
+
 
 --   def grad_loss : (mask: [16][16]real)
 --     -> (wpe: [16][16]real)
@@ -402,56 +402,56 @@ entry forward_seq (p : params) (tokens : [1][16]i64) (mask : [16][16]f64) : [1][
    let ws = (imap3 1 16 16 (\i j k -> wte[tokens[i][j]][k]))
    in nn64.forward_seq mask wpe wqry wkey wval wout wup wdown wvoc ws
 
-def cal_target (n : i64) (tokens : [16]i64) : [16][27]f64 =
-  imap2 16 27 (\i j -> (if ((i < (n - 1)) && (tokens[i + 1] == j)) then 1 else 0))
+def cal_target (n : i64) (tokens : [1][16]i64) : [1][16][27]f64 =
+  imap3 1 16 27 (\i j k -> (if ((j < (n - 1)) && (tokens[i][j + 1] == k)) then 1 else 0))
 
-entry cal_loss (dl : i64) (p : params) (tokens : [16]i64) (mask : [16][16]f64) : f64 =
+entry cal_loss (dl : i64) (p : params) (tokens : [1][16]i64) (mask : [16][16]f64) : f64 =
    let {wte, wpe, wqry, wkey, wval, wout, wup, wdown, wvoc} = p
    let target = cal_target dl tokens
-   let wseq = (imap2 16 16 (\m n -> wte[tokens[m]][n]))
-   in nn64.cal_loss mask wpe wqry wkey wval wout wup wdown wvoc wseq target
+   let ws = (imap3 1 16 16 (\i j k -> wte[tokens[i][j]][k]))
+   in nn64.cal_loss mask wpe wqry wkey wval wout wup wdown wvoc ws target
 
-def adam_opt_w [n] [m] (w : [n][m]f64) (mw : [n][m]f64) (vw : [n][m]f64)
-  (dw : [n][m]f64) (step : i64) (lt_r : f64):
-  ([n][m]f64, [n][m]f64, [n][m]f64) =
-  let new_mw = imap2 n m (\i j ->
-    0.85 * mw[i][j] + ((1 - 0.85) * dw[i][j]))
-  let new_vw = imap2 n m (\i j ->
-    0.99 * vw[i][j] + ((1 - 0.99) * dw[i][j] * dw[i][j]))
-  let m_hat = imap2 n m (\i j ->
-    new_mw[i][j] / (1 - 0.85 ** ((nn64.fromi64 step) + 1)))
-  let v_hat = imap2 n m (\i j ->
-    new_vw[i][j] / (1 - (0.99 ** ((nn64.fromi64 step) + 1))))
-  let new_w = imap2 n m (\i j ->
-    w[i][j] - (lt_r * m_hat[i][j] / ((v_hat[i][j] ** 0.5) + 0.00000001)))
-  in (new_w, new_mw, new_vw)
+-- def adam_opt_w [n] [m] (w : [n][m]f64) (mw : [n][m]f64) (vw : [n][m]f64)
+--   (dw : [n][m]f64) (step : i64) (lt_r : f64):
+--   ([n][m]f64, [n][m]f64, [n][m]f64) =
+--   let new_mw = imap2 n m (\i j ->
+--     0.85 * mw[i][j] + ((1 - 0.85) * dw[i][j]))
+--   let new_vw = imap2 n m (\i j ->
+--     0.99 * vw[i][j] + ((1 - 0.99) * dw[i][j] * dw[i][j]))
+--   let m_hat = imap2 n m (\i j ->
+--     new_mw[i][j] / (1 - 0.85 ** ((nn64.fromi64 step) + 1)))
+--   let v_hat = imap2 n m (\i j ->
+--     new_vw[i][j] / (1 - (0.99 ** ((nn64.fromi64 step) + 1))))
+--   let new_w = imap2 n m (\i j ->
+--     w[i][j] - (lt_r * m_hat[i][j] / ((v_hat[i][j] ** 0.5) + 0.00000001)))
+--   in (new_w, new_mw, new_vw)
 
-def adam_opt (p : params) (mp : params) (vp : params)
-  (dp : params) (step : i64) n :
-  (params,  params,  params) =
-  let lt_r = 0.01 * (1 - (nn64.fromi64 step) / (nn64.fromi64 n))
-  let (wte, mwte, vwte) =
-    adam_opt_w p.wte mp.wte vp.wte dp.wte step lt_r
-  let (wpe, mwpe, vwpe) =
-    adam_opt_w p.wpe mp.wpe vp.wpe dp.wpe step lt_r
-  let (wqry, mwqry, vwqry) =
-    adam_opt_w p.wqry mp.wqry vp.wqry dp.wqry step lt_r
-  let (wkey, mwkey, vwkey) =
-    adam_opt_w p.wkey mp.wkey vp.wkey dp.wkey step lt_r
-  let (wval, mwval, vwval) =
-    adam_opt_w p.wval mp.wval vp.wval dp.wval step lt_r
-  let (wout, mwout, vwout) =
-    adam_opt_w p.wout mp.wout vp.wout dp.wout step lt_r
-  let (wup, mwup, vwup) =
-    adam_opt_w p.wup mp.wup vp.wup dp.wup step lt_r
-  let (wdown, mwdown, vwdown) =
-    adam_opt_w p.wdown mp.wdown vp.wdown dp.wdown step lt_r
-  let (wvoc, mwvoc, vwvoc) =
-    adam_opt_w p.wvoc mp.wvoc vp.wvoc dp.wvoc step lt_r
-  let p' = to_params wte wpe wqry wkey wval wout wup wdown wvoc
-  let mp' = to_params mwte mwpe mwqry mwkey mwval mwout mwup mwdown mwvoc
-  let vp' = to_params vwte vwpe vwqry vwkey vwval vwout vwup vwdown vwvoc
-  in (p', mp', vp')
+-- def adam_opt (p : params) (mp : params) (vp : params)
+--   (dp : params) (step : i64) n :
+--   (params,  params,  params) =
+--   let lt_r = 0.01 * (1 - (nn64.fromi64 step) / (nn64.fromi64 n))
+--   let (wte, mwte, vwte) =
+--     adam_opt_w p.wte mp.wte vp.wte dp.wte step lt_r
+--   let (wpe, mwpe, vwpe) =
+--     adam_opt_w p.wpe mp.wpe vp.wpe dp.wpe step lt_r
+--   let (wqry, mwqry, vwqry) =
+--     adam_opt_w p.wqry mp.wqry vp.wqry dp.wqry step lt_r
+--   let (wkey, mwkey, vwkey) =
+--     adam_opt_w p.wkey mp.wkey vp.wkey dp.wkey step lt_r
+--   let (wval, mwval, vwval) =
+--     adam_opt_w p.wval mp.wval vp.wval dp.wval step lt_r
+--   let (wout, mwout, vwout) =
+--     adam_opt_w p.wout mp.wout vp.wout dp.wout step lt_r
+--   let (wup, mwup, vwup) =
+--     adam_opt_w p.wup mp.wup vp.wup dp.wup step lt_r
+--   let (wdown, mwdown, vwdown) =
+--     adam_opt_w p.wdown mp.wdown vp.wdown dp.wdown step lt_r
+--   let (wvoc, mwvoc, vwvoc) =
+--     adam_opt_w p.wvoc mp.wvoc vp.wvoc dp.wvoc step lt_r
+--   let p' = to_params wte wpe wqry wkey wval wout wup wdown wvoc
+--   let mp' = to_params mwte mwpe mwqry mwkey mwval mwout mwup mwdown mwvoc
+--   let vp' = to_params vwte vwpe vwqry vwkey vwval vwout vwup vwdown vwvoc
+--   in (p', mp', vp')
 
 -- def grad_loss (dl : i64) (p : params) (tokens : [16]i64) (mask : [16][16]f64) :
 --         (

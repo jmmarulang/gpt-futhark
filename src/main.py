@@ -243,30 +243,40 @@ mask = -1*mask*big_num
 with futhark_server.Server(futhark) as server:
     server.put_value('tokens', futhark_tokens)
     server.put_value('mask', mask)
+    server.put_value('dl', np.array(dl).astype(np.int64, copy=False))
     for k , data in fwdic.items():
         server.put_value(k, data)
     server.cmd_call('to_params', 'fparams', *fwdic.keys())
-    server.cmd_call('forward_seq', 'fmlogits', 'fparams', 'tokens', 'mask')
-    futhark_logits = server.get_value('fmlogits')
+    server.cmd_call('forward_seq', 'flogits', 'fparams', 'tokens', 'mask')
+    server.cmd_call('cal_loss', 'floss', 'dl', 'fparams', 'tokens', 'mask')
+    futhark_logits = server.get_value('flogits')
+    futhark_loss = server.get_value('floss')
 futhark_probs = np.array([softmax(logits) for logits in futhark_logits])
 futhark_probs = futhark_probs[: dl]
 
 # # Python
-python_logits = mp.forward_seq(python_tokens, pwdic)
+python_logits, python_loss = mp.forward_seq(python_tokens, pwdic)
 python_logits = np.array([[val.data for val in logits] for logits in python_logits])
 python_probs = np.array([softmax(logits) for logits in python_logits])
+python_loss = python_loss.data
 
 #### Torch
-torch_tokens = torch.tensor([python_tokens], dtype=torch.long)
+n = min(sl, len(python_tokens) - 1)
+# torch_tokens = torch.tensor([python_tokens], dtype=torch.long)
 torch_model.eval()
 with torch.no_grad():
-    torch_logits, _ = torch_model(torch_tokens)
+    x = torch.tensor([python_tokens[:n]], dtype=torch.long)
+    y = torch.tensor([python_tokens[1:n+1]], dtype=torch.long)
+    torch_logits, torch_loss = torch_model(x , y)
 torch_logits = torch_logits.numpy()[0]
-torch_probs = np.array([softmax(logits) for logits in torch_logits])
+torch_loss = torch_loss.numpy()
 
 #-------------------------------------
 # TESTS
 
+print("futhark loss", futhark_loss)
+print("python  loss", python_loss)
+print("torch   loss", torch_loss)
 
 #-------------------------------------
 # PLOTS

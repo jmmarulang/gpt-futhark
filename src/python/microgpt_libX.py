@@ -135,6 +135,23 @@ def forward_seq(seq_ids, pwdic):
 
     return seq_logits
 
+def forward_seq(seq_ids, pwdic):
+    n = min(block_size, len(seq_ids) -1)
+    keys, vals = [[]], [[]]
+    seq_logits = []
+    seq_losses = []
+
+    for pos_id in range(n):
+        tok_id, target_id = seq_ids[pos_id], seq_ids[pos_id + 1]
+        logits = forward(tok_id, pos_id, pwdic, keys, vals)
+        seq_logits.append(logits)
+        probs = softmax(logits)
+        loss_t = -probs[target_id].log()
+        seq_losses.append(loss_t)
+    loss = (1 / block_size) * sum(seq_losses) # final average loss over the document sequence. May yours be low.
+
+    return seq_logits, loss
+
 def train(docs, uchars, BOS, num_steps, state_dict):
     params = [p for mat in state_dict.values() for row in mat for p in row] # flatten params into a single list[Value]
     m = [0.0] * len(params) # first moment buffer
