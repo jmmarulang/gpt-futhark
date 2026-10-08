@@ -527,6 +527,13 @@ module Primitives where
       → E Γ $ ar $ p ⊗ s → E Γ $ ar $ p ⊗ q → E Γ $ ar $ p ⊗ r
     zipwith {p} f a b = Imap {p} λ i → f (sel ⟨ a ⟩ i) (sel ⟨ b ⟩ i)
 
+    zipwith₃ : ∀ {Γ}
+      → (E (Γ ▹ ix p) $ ar s → E (Γ ▹ ix p) $ ar q
+        → E (Γ ▹ ix p) $ ar r → E (Γ ▹ ix p) $ ar w)
+      → E Γ $ ar $ p ⊗ s → E Γ $ ar $ p ⊗ q → E Γ $ ar $ p ⊗ r
+      → E Γ $ ar $ p ⊗ w
+    zipwith₃ {p} f a b c = Imap {p} λ i → f (sel ⟨ a ⟩ i) (sel ⟨ b ⟩ i) (sel ⟨ c ⟩ i)
+
     assᵣ : ∀ {Γ} → E Γ $ ar $ s ⊗ (p ⊗ q) → E Γ $ ar $ (s ⊗ p) ⊗ q
     assᵣ {s} {p} {q} e = Imap {s ⊗ p} λ i → Imaps λ j →
       sels (Imap {s} λ k → Imaps λ w → sels (sel (sel ⟨ e ⟩ k) w) j) i
@@ -560,27 +567,27 @@ module Primitives where
       Imap {u} λ i → Imaps {r} λ j → Sum {s} λ k →
       sels ((sel ⟨ w1 ⟩ i) ⊠ (sel ⟨ w2 ⟩ j)) k
 
-    rmsnorm : ∀ {Γ} → E Γ $ ar s → E Γ $ ar s
-    rmsnorm {s = s} x =
-      Let xx := x ⊠ x In
-      Let ms := scaledown (len s) (Sum (λ i → sels xx i)) In
+    m-rmsnorm : ∀ {Γ} → E Γ $ ar $ p ⊗ s → E Γ $ ar $ p ⊗ s
+    m-rmsnorm {p = p} {s = s} e =
+      Let xx := e ⊠ e In
+      Let ms :=
+        map {p} (λ x → scaledown (len s) (Sum (λ i → sels ⟨ x ⟩ i))) xx In
       Let scale := √ (ms ⊞ (scaledown 100000 𝟙)) In
-      Imaps λ i → (sels ⟨ x ⟩ i) // scale
+      zipwith {p} (λ a b → a // Ks b) ⟨ e ⟩ scale
 
     split : s * p ≈ r → E Γ $ ar $ r → E Γ $ ar $ s ⊗ p
     split {s} eq x = Imap {s} λ i → selb eq ⟨ x ⟩ i
 
-    merge : s * p ≈ r → E Γ $ ar $ s ⊗ p → E Γ $ ar $ r
-    merge eq x = Imapb eq λ i → sel ⟨ x ⟩ i
+    cat : s * p ≈ r → E Γ $ ar $ s ⊗ p → E Γ $ ar $ r
+    cat eq x = Imapb eq λ i → sel ⟨ x ⟩ i
 
     cross-entropy : ∀ {Γ} (target logits : E Γ (ar s)) → (E Γ (ar []))
-    cross-entropy {s} target logits =
-      Let lnsf := ln (ℙ logits) In
-      (⊟ (Sum λ i → sels lnsf i ⊠ sels ⟨ target ⟩ i))
+    cross-entropy {s} target probs =
+      -- Let lnsf := ln (ℙ logits) In
+      (⊟ (Sum λ i → sels (ln ⟨ probs ⟩) i ⊠ sels ⟨ target ⟩ i))
 
     avg : ∀ {Γ} → E Γ (ar s) → E Γ (ar [])
     avg {s} x = scaledown (len s) (Sum λ i → sels ⟨ x ⟩ i)
-
 
     AH = [ 4 ] ; HD = [ 4 ] ; SL = [ 16 ] ; FD = [ 64 ] ; SC = 2
     VO = [ 27 ] ; BS = [ 1 ] ; ED = [ 16 ]
@@ -598,7 +605,7 @@ module Primitives where
         -- weights for queries, keys, values and output projection
         wkey wqry wval : E Γ $ ar $ ed ⊗ ed
         wo : E Γ $ ar $ ed ⊗ ed
-        -- attention and padding mask
+        -- attn and padding mask
         mask : E Γ $ ar $ sl ⊗ sl
         -- up projection
         wu : E Γ $ ar $ fd ⊗ ed
@@ -629,103 +636,72 @@ module Primitives where
     ⟨_⟩ʷ : GPTW Γ sl ed ah hd fd vo → G-GPTW Γ sl ed ah hd fd vo
     ⟨_⟩ʷ p {Δ} ⦃ pf ⦄  = wk-gptp pf p
 
-    attention : ∀ {Γ} → (sc : ℕ) →
+    block : ∀ {Γ} → ah * hd ≈ ed → E Γ $ ar $ (bs ⊗ sl) ⊗ ed
+      → E Γ $ ar $ (bs ⊗ ah) ⊗ (sl ⊗ hd)
+    block {ah = ah} {bs = bs} {sl = sl} eq x =
+      trᵢ {bs} {sl} {ah} $ map {bs ⊗ sl} (split $ eq) x
+
+    merge : ∀ {Γ} → ah * hd ≈ ed → E Γ $ ar $ (bs ⊗ ah) ⊗ (sl ⊗ hd)
+      → E Γ $ ar $ (bs ⊗ sl) ⊗ ed
+    merge {ah} {bs = bs} eq x = map {bs ⊗ _} (cat eq) (trᵢ {bs} {ah} x)
+
+    attn-proj : ∀ {Γ} → ah * hd ≈ ed → E Γ $ ar $ ed ⊗ ed
+      → E Γ $ ar $ (bs ⊗ sl) ⊗ ed
+      → E Γ $ ar $ (bs ⊗ ah) ⊗ (sl ⊗ hd)
+    attn-proj {bs = bs} {sl = sl} eq w x =
+      block {bs = bs} eq $ map {bs ⊗ sl} (linear ⟨ w ⟩ 𝟘) x
+
+    query : ∀ {Γ} → GPTW Γ sl ed ah hd fd vo
+      → E Γ $ ar $ (bs ⊗ sl) ⊗ ed
+      → E Γ $ ar $ (bs ⊗ ah) ⊗ (sl ⊗ hd)
+    query {sl = sl} {bs = bs} θ x =
+      attn-proj {bs = bs} (θ .att-eq) (θ .wqry) x
+
+    key : ∀ {Γ} → GPTW Γ sl ed ah hd fd vo
+      → E Γ $ ar $ (bs ⊗ sl) ⊗ ed
+      → E Γ $ ar $ (bs ⊗ ah) ⊗ (sl ⊗ hd)
+    key {sl = sl} {bs = bs} θ x =
+      attn-proj {bs = bs} (θ .att-eq) (θ .wkey) x
+
+    value : ∀ {Γ} → GPTW Γ sl ed ah hd fd vo
+      → E Γ $ ar $ (bs ⊗ sl) ⊗ ed
+      → E Γ $ ar $ (bs ⊗ ah) ⊗ (sl ⊗ hd)
+    value {sl = sl} {bs = bs} θ x =
+      attn-proj {bs = bs} (θ .att-eq) (θ .wval) x
+
+    attn : ∀ {Γ} → (sc : ℕ) →
                    (mask : E Γ (ar (sl ⊗ sl)))
                    (qs ks vs : E Γ (ar (sl ⊗ hd)))
                   → E Γ (ar (sl ⊗ hd))
-    attention {sl} {hd} {Γ} sc mask hqs hks hvs =
-      Let hqks := matmult {sl} hqs hks In
-      Let masked := (scaledown sc hqks) ⊞ ⟨ mask ⟩ In
-      Let sf := map {sl} ℙ masked In
-      matmul {sl} sf ⟨ hvs ⟩
+    attn {sl} {hd} {Γ} sc mask hq hk hv =
+      matmul {sl}
+        (map {sl} ℙ ((scaledown sc (matmult {sl} hq hk)) ⊞ ⟨ mask ⟩)) ⟨ hv ⟩
 
-    mh-attention : ∀ {Γ} → (sc : ℕ)
-                   (mask : E Γ (ar (sl ⊗ sl)))
-                   (qs ks vs : E Γ (ar (ah ⊗ (sl ⊗ hd))))
-                   → E Γ (ar (ah ⊗ (sl ⊗ hd)))
-    mh-attention {sl} {ah} {hd} {Γ} sc mask bqs bks bvs =
-      Imap {ah} λ i →
-      attention {sl = sl} sc ⟨ mask ⟩ (sel ⟨ bqs ⟩ i) (sel ⟨ bks ⟩ i) (sel ⟨ bvs ⟩ i)
-
-    mgpt-forward : ∀ {Γ} (sc : ℕ)
-                   → GPTW Γ sl ed ah hd fd vo
-                   → E Γ (ar (sl ⊗ ed))
-                   → E Γ (ar (sl ⊗ vo))
-    mgpt-forward {sl} {ed} {ah} {hd} {fd} {vo} sc θ ws =
-      -- Embedding
-      Let wj := (θ .wp) ⊞ ws In
-      Let x₀ := map {sl} rmsnorm wj In --residual
-      Let x₁ := map {sl} rmsnorm x₀ In
-      -- Attention
-      Let k      := map {sl} (linear ⟨ θ .wkey ⟩ 𝟘) x₁ In
-      Let q      := map {sl} (linear ⟨ θ .wqry ⟩ 𝟘) x₁ In
-      Let v      := map {sl} (linear ⟨ θ .wval ⟩ 𝟘) x₁ In
-      Let bk     := trₗ {sl} {ah} $ map {sl} (split (θ .att-eq)) k In
-      Let bq     := trₗ {sl} {ah} $ map {sl} (split (θ .att-eq)) q In
-      Let bv     := trₗ {sl} {ah} $ map {sl} (split (θ .att-eq)) v In
-      -- Let scores := zipwith {ah} (λ hq hk → matmult {sl} hq hk) bq bk In
-      -- Let masked := map {ah} (λ x → x ⊞ ⟨ θ .mask ⟩) scores In
-      -- Let sf     := map {ah} (map {sl} ℙ) masked In
-      -- Let batt   := zipwith {ah} (λ hsf hv → matmul {sl} hsf hv) sf bv In
-      Let batt := mh-attention {sl} {ah} sc ⟨ θ .mask ⟩ bq bk bv In
-      Let att    := map {sl} (merge (θ .att-eq)) (trₗ {ah} {sl} batt) In
-      Let out    := map {sl} (linear ⟨ θ .wo ⟩ 𝟘) att In
-      Let x₂     := out ⊞ x₀ In --residual
-      -- Feed Forward
-      Let x₃   := map {sl} rmsnorm x₂ In
-      Let up   := map {sl} (linear ⟨ θ .wu ⟩ 𝟘) x₃ In
-      Let af   := relu up In
-      Let down := map {sl} (linear ⟨ θ .wd ⟩ 𝟘) af In
-      Let x₄   := down ⊞ x₂ In
-      -- logits
-      map {sl} (linear ⟨ θ .wc ⟩ 𝟘) x₄
-
-    mgpt-loss : ∀ {Γ} (sc : ℕ)
-                   → GPTW Γ sl ed ah hd fd vo
-                   → E Γ (ar (sl ⊗ ed))
-                   → E Γ (ar (sl ⊗ vo))
-                   → E Γ (ar [])
-    mgpt-loss {sl} {ed} {ah} {hd} {fd} {vo} sc θ ws target =
-      Let logits := mgpt-forward sc θ ws In
-      avg (zipwith {sl} (λ a b → cross-entropy a b) ⟨ target ⟩ logits)
+    mh-attn : ∀ {Γ} → (sc : ℕ)
+                (mask : E Γ $ ar $ sl ⊗ sl)
+                (q k v : E Γ $ ar $ (bs ⊗ ah) ⊗ (sl ⊗ hd))
+                → E Γ $ ar $ (bs ⊗ ah) ⊗ (sl ⊗ hd)
+    mh-attn {sl = sl} {bs = bs} {ah = ah} sc mask q k v =
+      zipwith₃ {bs ⊗ ah} (attn {sl} sc ⟨ mask ⟩) q k v
 
     bgpt-forward : ∀ {Γ} (sc : ℕ)
                 → GPTW Γ sl ed ah hd fd vo
                 → E Γ (ar (bs ⊗ (sl ⊗ ed)))
-                → E Γ (ar (bs ⊗ (sl ⊗ vo)))
+                → E Γ (ar ((bs ⊗ sl) ⊗ vo))
     bgpt-forward {sl} {ed} {ah} {hd} {fd} {vo} {bs} sc θ ws =
-      -- map {bs} (λ x → mgpt-forward sc ⟨ θ ⟩ʷ x) ws
-      -- Embedding
-      Let wj := (assᵣ {bs} {sl} $ K {bs} (θ .wp) ⊞ ws) In
-      Let x₀ := map {bs ⊗ sl} rmsnorm wj In
-      Let x₁ := map {bs ⊗ sl} rmsnorm x₀ In
-      -- Attention
-      Let k      := map {bs ⊗ sl} (linear ⟨ θ .wkey ⟩ 𝟘) x₁ In
-      Let q      := map {bs ⊗ sl} (linear ⟨ θ .wqry ⟩ 𝟘) x₁ In
-      Let v      := map {bs ⊗ sl} (linear ⟨ θ .wval ⟩ 𝟘) x₁ In
-      Let bk     :=
-        trᵢ {bs} {sl} {ah} $ map {bs ⊗ sl} (split (θ .att-eq)) k In
-      Let bq     :=
-        trᵢ {bs} {sl} {ah} $ map {bs ⊗ sl} (split (θ .att-eq)) q In
-      Let bv     :=
-        trᵢ {bs} {sl} {ah} $ map {bs ⊗ sl} (split (θ .att-eq)) v In
-      -- Let scores := zipwith {bs ⊗ ah} (λ hq hk → matmult {sl} hq hk) bq bk In
-      -- Let masked := map {bs ⊗ ah} (λ x → x ⊞ ⟨ θ .mask ⟩) scores In
-      -- Let sf     := map {bs ⊗ ah} (map {sl} ℙ) masked In
-      -- Let batt   := zipwith {bs ⊗ ah} (λ hsf hv → matmul {sl} hsf hv) sf bv In
-      Let batt   := assᵣ {bs} (Imap {bs} λ i →
-        mh-attention {sl} {ah} sc ⟨ θ .mask ⟩ (sel (assₗ {bs} bq) i) (sel (assₗ {bs} bk) i) (sel (assₗ {bs} bv) i)) In
-      Let att    := map {bs ⊗ sl} (merge (θ .att-eq)) (trᵢ {bs} {ah} batt) In
-      Let out    := map {bs ⊗ sl} (linear ⟨ θ .wo ⟩ 𝟘) att In
-      Let x₂     := out ⊞ x₀ In
-      -- Feed Forward
-      Let x₃   := map {bs ⊗ sl} rmsnorm x₂ In
-      Let up   := map {bs ⊗ sl} (linear ⟨ θ .wu ⟩ 𝟘) x₃ In
-      Let af   := relu up In
-      Let down := map {bs ⊗ sl} (linear ⟨ θ .wd ⟩ 𝟘) af In
-      Let x₄   := down ⊞ x₂ In
-      -- logits
-      assₗ {bs} {sl} (map {bs ⊗ sl} (linear ⟨ θ .wc ⟩ 𝟘) x₄)
+      -- embedding
+      Let x₀ := m-rmsnorm {bs ⊗ sl} (assᵣ {bs} {sl} $ K {bs} (θ .wp) ⊞ ws) In
+      Let x₁ := m-rmsnorm {bs ⊗ sl} x₀ In
+      -- attention
+      Let att := merge {bs = bs} (θ .att-eq) $
+        mh-attn {sl = sl} {bs = bs} sc ⟨ θ .mask ⟩
+        (query ⟨ θ ⟩ʷ x₁) (key ⟨ θ ⟩ʷ x₁) (value ⟨ θ ⟩ʷ x₁) In
+      Let x₂ := x₀ ⊞ (map {bs ⊗ sl} (linear ⟨ θ .wo ⟩ 𝟘) att) In
+      -- feed forward and logits
+      Let x₃ := m-rmsnorm {bs ⊗ sl} x₂ In
+        (map {bs ⊗ sl} (linear ⟨ θ .wc ⟩ 𝟘) $
+        x₂ ⊞_ $ map {bs ⊗ sl} (linear ⟨ θ .wd ⟩ 𝟘) $
+        relu $ map {bs ⊗ sl} (linear ⟨ θ .wu ⟩ 𝟘) x₃)
 
     bgpt-loss : ∀ {Γ} (sc : ℕ)
                 → GPTW Γ sl ed ah hd fd vo
@@ -733,80 +709,22 @@ module Primitives where
                 → E Γ (ar ((bs ⊗ sl) ⊗ vo))
                 → E Γ (ar [])
     bgpt-loss {sl} {ed} {ah} {hd} {fd} {vo} {bs} sc θ ws target =
-      avg (zipwith {bs} (λ x y → mgpt-loss sc ⟨ θ ⟩ʷ x y) ws (assₗ {bs} target))
-
-    -- bgpt-forward : ∀ {Γ} (sc : ℕ)
-    --             → GPTW Γ sl ed ah hd fd vo
-    --             → E Γ (ar (bs ⊗ (sl ⊗ ed)))
-    --             → E Γ (ar (bs ⊗ (sl ⊗ vo)))
-    -- bgpt-forward {sl} {ed} {ah} {hd} {fd} {vo} {bs} sc θ ws =
-    --   -- Embedding
-    --   Let wj := (assᵣ {bs} {sl} $ K {bs} (θ .wp) ⊞ ws) In
-    --   Let x₀ := map {bs ⊗ sl} rmsnorm wj In
-    --   Let x₁ := map {bs ⊗ sl} rmsnorm x₀ In
-    --   -- Attention
-    --   Let k      := map {bs ⊗ sl} (linear ⟨ θ .wkey ⟩ 𝟘) x₁ In
-    --   Let q      := map {bs ⊗ sl} (linear ⟨ θ .wqry ⟩ 𝟘) x₁ In
-    --   Let v      := map {bs ⊗ sl} (linear ⟨ θ .wval ⟩ 𝟘) x₁ In
-    --   Let bk     :=
-    --     trᵢ {bs} {sl} {ah} $ map {bs ⊗ sl} (split (θ .att-eq)) k In
-    --   Let bq     :=
-    --     trᵢ {bs} {sl} {ah} $ map {bs ⊗ sl} (split (θ .att-eq)) q In
-    --   Let bv     :=
-    --     trᵢ {bs} {sl} {ah} $ map {bs ⊗ sl} (split (θ .att-eq)) v In
-    --   Let scores := zipwith {bs ⊗ ah} (λ hq hk → matmult {sl} hq hk) bq bk In
-    --   Let masked := map {bs ⊗ ah} (λ x → x ⊞ ⟨ θ .mask ⟩) scores In
-    --   Let sf     := map {bs ⊗ ah} (map {sl} ℙ) masked In
-    --   Let batt   := zipwith {bs ⊗ ah} (λ hsf hv → matmul {sl} hsf hv) sf bv In
-    --   Let att    := map {bs ⊗ sl} (merge (θ .att-eq)) (trᵢ {bs} batt) In
-    --   Let out    := map {bs ⊗ sl} (linear ⟨ θ .wo ⟩ 𝟘) att In
-    --   Let x₂     := out ⊞ x₀ In
-    --   -- Feed Forward
-    --   Let x₃   := map {bs ⊗ sl} rmsnorm x₂ In
-    --   Let up   := map {bs ⊗ sl} (linear ⟨ θ .wu ⟩ 𝟘) x₃ In
-    --   Let af   := relu up In
-    --   Let down := map {bs ⊗ sl} (linear ⟨ θ .wd ⟩ 𝟘) af In
-    --   Let x₄   := down ⊞ x₂ In
-    --   -- logits
-    --   assₗ {bs} {sl} (map {bs ⊗ sl} (linear ⟨ θ .wc ⟩ 𝟘) x₄)
-
-    -- bgpt-loss : ∀ {Γ} (sc : ℕ)
-    --             → GPTW Γ sl ed ah hd fd vo
-    --             → E Γ (ar (bs ⊗ (sl ⊗ ed)))
-    --             → E Γ (ar ((bs ⊗ sl) ⊗ vo))
-    --             → E Γ (ar [])
-    -- bgpt-loss {sl} {ed} {ah} {hd} {fd} {vo} {bs} sc θ ws target =
-    --   -- Embedding
-    --   Let wj := (assᵣ {bs} {sl} $ K {bs} (θ .wp) ⊞ ws) In
-    --   Let x₀ := map {bs ⊗ sl} rmsnorm wj In
-    --   Let x₁ := map {bs ⊗ sl} rmsnorm x₀ In
-    --   -- Attention
-    --   Let k      := map {bs ⊗ sl} (linear ⟨ θ .wkey ⟩ 𝟘) x₁ In
-    --   Let q      := map {bs ⊗ sl} (linear ⟨ θ .wqry ⟩ 𝟘) x₁ In
-    --   Let v      := map {bs ⊗ sl} (linear ⟨ θ .wval ⟩ 𝟘) x₁ In
-    --   Let bk     :=
-    --     trᵢ {bs} {sl} {ah} $ map {bs ⊗ sl} (split (θ .att-eq)) k In
-    --   Let bq     :=
-    --     trᵢ {bs} {sl} {ah} $ map {bs ⊗ sl} (split (θ .att-eq)) q In
-    --   Let bv     :=
-    --     trᵢ {bs} {sl} {ah} $ map {bs ⊗ sl} (split (θ .att-eq)) v In
-    --   Let scores := zipwith {bs ⊗ ah} (λ hq hk → matmult {sl} hq hk) bq bk In
-    --   Let masked := map {bs ⊗ ah} (λ x → x ⊞ ⟨ θ .mask ⟩) scores In
-    --   Let sf     := map {bs ⊗ ah} (map {sl} ℙ) masked In
-    --   Let batt   := zipwith {bs ⊗ ah} (λ hsf hv → matmul {sl} hsf hv) sf bv In
-    --   Let att    := map {bs ⊗ sl} (merge (θ .att-eq)) (trᵢ {bs} batt) In
-    --   Let out    := map {bs ⊗ sl} (linear ⟨ θ .wo ⟩ 𝟘) att In
-    --   Let x₂     := out ⊞ x₀ In
-    --   -- Feed Forward
-    --   Let x₃   := map {bs ⊗ sl} rmsnorm x₂ In
-    --   Let up   := map {bs ⊗ sl} (linear ⟨ θ .wu ⟩ 𝟘) x₃ In
-    --   Let af   := relu up In
-    --   Let down := map {bs ⊗ sl} (linear ⟨ θ .wd ⟩ 𝟘) af In
-    --   Let x₄   := down ⊞ x₂ In
-    --   -- logits
-    --   Let logits := map {bs ⊗ sl} (linear ⟨ θ .wc ⟩ 𝟘) x₄ In
-    --   -- loss
-    --   avg (zipwith {bs ⊗ sl} (λ a b → cross-entropy a b) ⟨ target ⟩ logits)
+      -- embedding
+      Let x₀ := m-rmsnorm {bs ⊗ sl} (assᵣ {bs} {sl} $ K {bs} (θ .wp) ⊞ ws) In
+      Let x₁ := m-rmsnorm {bs ⊗ sl} x₀ In
+      -- attention
+      Let att := merge {bs = bs} (θ .att-eq) $
+        mh-attn {sl = sl} {bs = bs} sc ⟨ θ .mask ⟩
+        (query ⟨ θ ⟩ʷ x₁) (key ⟨ θ ⟩ʷ x₁) (value ⟨ θ ⟩ʷ x₁) In
+      Let x₂ := x₀ ⊞ (map {bs ⊗ sl} (linear ⟨ θ .wo ⟩ 𝟘) att) In
+      -- feed forward and logits
+      Let x₃ := m-rmsnorm {bs ⊗ sl} x₂ In
+      Let logits := (map {bs ⊗ sl} (linear ⟨ θ .wc ⟩ 𝟘) $
+        x₂ ⊞_ $ map {bs ⊗ sl} (linear ⟨ θ .wd ⟩ 𝟘) $
+        relu $ map {bs ⊗ sl} (linear ⟨ θ .wu ⟩ 𝟘) x₃) In
+      -- loss
+      Let probs := map {bs ⊗ sl} ℙ logits In
+      avg (zipwith {bs ⊗ sl} (λ a b → cross-entropy a b) ⟨ target ⟩ probs)
 
     bgpt-forward-e : E _ _
     bgpt-forward-e = Lcon (
@@ -843,6 +761,123 @@ module Primitives where
                   → let θ = gptw wp PR wkey wqry wval wo mask wu wd wc in
                     bgpt-loss {sl = SL} {vo = VO} {bs = BS} SC θ ws target
 
+      -- avg (zipwith {bs} (λ x y → mgpt-loss sc ⟨ θ ⟩ʷ x y) ws (assₗ {bs} target))
+
+    -- mgpt-forward : ∀ {Γ} (sc : ℕ)
+    --                → GPTW Γ sl ed ah hd fd vo
+    --                → E Γ (ar (sl ⊗ ed))
+    --                → E Γ (ar (sl ⊗ vo))
+    -- mgpt-forward {sl} {ed} {ah} {hd} {fd} {vo} sc θ ws =
+    --   -- Embedding
+    --   Let wj := (θ .wp) ⊞ ws In
+    --   Let x₀ := map {sl} rmsnorm wj In --residual
+    --   Let x₁ := map {sl} rmsnorm x₀ In
+    --   -- Attn
+    --   Let k      := map {sl} (linear ⟨ θ .wkey ⟩ 𝟘) x₁ In
+    --   Let q      := map {sl} (linear ⟨ θ .wqry ⟩ 𝟘) x₁ In
+    --   Let v      := map {sl} (linear ⟨ θ .wval ⟩ 𝟘) x₁ In
+    --   Let bk     := trₗ {sl} {ah} $ map {sl} (split (θ .att-eq)) k In
+    --   Let bq     := trₗ {sl} {ah} $ map {sl} (split (θ .att-eq)) q In
+    --   Let bv     := trₗ {sl} {ah} $ map {sl} (split (θ .att-eq)) v In
+    --   -- Let scores := zipwith {ah} (λ hq hk → matmult {sl} hq hk) bq bk In
+    --   -- Let masked := map {ah} (λ x → x ⊞ ⟨ θ .mask ⟩) scores In
+    --   -- Let sf     := map {ah} (map {sl} ℙ) masked In
+    --   -- Let batt   := zipwith {ah} (λ hsf hv → matmul {sl} hsf hv) sf bv In
+    --   Let batt := mh-attn' {sl} {ah} sc ⟨ θ .mask ⟩ bq bk bv In
+    --   Let att    := map {sl} (cat (θ .att-eq)) (trₗ {ah} {sl} batt) In
+    --   Let out    := map {sl} (linear ⟨ θ .wo ⟩ 𝟘) att In
+    --   Let x₂     := out ⊞ x₀ In --residual
+    --   -- Feed Forward
+    --   Let x₃   := map {sl} rmsnorm x₂ In
+    --   Let up   := map {sl} (linear ⟨ θ .wu ⟩ 𝟘) x₃ In
+    --   Let af   := relu up In
+    --   Let down := map {sl} (linear ⟨ θ .wd ⟩ 𝟘) af In
+    --   Let x₄   := down ⊞ x₂ In
+    --   -- logits
+    --   map {sl} (linear ⟨ θ .wc ⟩ 𝟘) x₄
+
+    -- mgpt-loss : ∀ {Γ} (sc : ℕ)
+    --                → GPTW Γ sl ed ah hd fd vo
+    --                → E Γ (ar (sl ⊗ ed))
+    --                → E Γ (ar (sl ⊗ vo))
+    --                → E Γ (ar [])
+    -- mgpt-loss {sl} {ed} {ah} {hd} {fd} {vo} sc θ ws target =
+    --   Let logits := mgpt-forward sc θ ws In
+    --   avg (zipwith {sl} (λ a b → cross-entropy a b) ⟨ target ⟩ logits)
+
+    -- bgpt-forward : ∀ {Γ} (sc : ℕ)
+    --             → GPTW Γ sl ed ah hd fd vo
+    --             → E Γ (ar (bs ⊗ (sl ⊗ ed)))
+    --             → E Γ (ar (bs ⊗ (sl ⊗ vo)))
+    -- bgpt-forward {sl} {ed} {ah} {hd} {fd} {vo} {bs} sc θ ws =
+    --   -- Embedding
+    --   Let wj := (assᵣ {bs} {sl} $ K {bs} (θ .wp) ⊞ ws) In
+    --   Let x₀ := map {bs ⊗ sl} rmsnorm wj In
+    --   Let x₁ := map {bs ⊗ sl} rmsnorm x₀ In
+    --   -- Attn
+    --   Let k      := map {bs ⊗ sl} (linear ⟨ θ .wkey ⟩ 𝟘) x₁ In
+    --   Let q      := map {bs ⊗ sl} (linear ⟨ θ .wqry ⟩ 𝟘) x₁ In
+    --   Let v      := map {bs ⊗ sl} (linear ⟨ θ .wval ⟩ 𝟘) x₁ In
+    --   Let bk     :=
+    --     trᵢ {bs} {sl} {ah} $ map {bs ⊗ sl} (split (θ .att-eq)) k In
+    --   Let bq     :=
+    --     trᵢ {bs} {sl} {ah} $ map {bs ⊗ sl} (split (θ .att-eq)) q In
+    --   Let bv     :=
+    --     trᵢ {bs} {sl} {ah} $ map {bs ⊗ sl} (split (θ .att-eq)) v In
+    --   Let scores := zipwith {bs ⊗ ah} (λ hq hk → matmult {sl} hq hk) bq bk In
+    --   Let masked := map {bs ⊗ ah} (λ x → x ⊞ ⟨ θ .mask ⟩) scores In
+    --   Let sf     := map {bs ⊗ ah} (map {sl} ℙ) masked In
+    --   Let batt   := zipwith {bs ⊗ ah} (λ hsf hv → matmul {sl} hsf hv) sf bv In
+    --   Let att    := map {bs ⊗ sl} (cat (θ .att-eq)) (trᵢ {bs} batt) In
+    --   Let out    := map {bs ⊗ sl} (linear ⟨ θ .wo ⟩ 𝟘) att In
+    --   Let x₂     := out ⊞ x₀ In
+    --   -- Feed Forward
+    --   Let x₃   := map {bs ⊗ sl} rmsnorm x₂ In
+    --   Let up   := map {bs ⊗ sl} (linear ⟨ θ .wu ⟩ 𝟘) x₃ In
+    --   Let af   := relu up In
+    --   Let down := map {bs ⊗ sl} (linear ⟨ θ .wd ⟩ 𝟘) af In
+    --   Let x₄   := down ⊞ x₂ In
+    --   -- logits
+    --   assₗ {bs} {sl} (map {bs ⊗ sl} (linear ⟨ θ .wc ⟩ 𝟘) x₄)
+
+    -- bgpt-loss : ∀ {Γ} (sc : ℕ)
+    --             → GPTW Γ sl ed ah hd fd vo
+    --             → E Γ (ar (bs ⊗ (sl ⊗ ed)))
+    --             → E Γ (ar ((bs ⊗ sl) ⊗ vo))
+    --             → E Γ (ar [])
+    -- bgpt-loss {sl} {ed} {ah} {hd} {fd} {vo} {bs} sc θ ws target =
+    --   -- Embedding
+    --   Let wj := (assᵣ {bs} {sl} $ K {bs} (θ .wp) ⊞ ws) In
+    --   Let x₀ := map {bs ⊗ sl} rmsnorm wj In
+    --   Let x₁ := map {bs ⊗ sl} rmsnorm x₀ In
+    --   -- Attn
+    --   Let k      := map {bs ⊗ sl} (linear ⟨ θ .wkey ⟩ 𝟘) x₁ In
+    --   Let q      := map {bs ⊗ sl} (linear ⟨ θ .wqry ⟩ 𝟘) x₁ In
+    --   Let v      := map {bs ⊗ sl} (linear ⟨ θ .wval ⟩ 𝟘) x₁ In
+    --   Let bk     :=
+    --     trᵢ {bs} {sl} {ah} $ map {bs ⊗ sl} (split (θ .att-eq)) k In
+    --   Let bq     :=
+    --     trᵢ {bs} {sl} {ah} $ map {bs ⊗ sl} (split (θ .att-eq)) q In
+    --   Let bv     :=
+    --     trᵢ {bs} {sl} {ah} $ map {bs ⊗ sl} (split (θ .att-eq)) v In
+    --   Let scores := zipwith {bs ⊗ ah} (λ hq hk → matmult {sl} hq hk) bq bk In
+    --   Let masked := map {bs ⊗ ah} (λ x → x ⊞ ⟨ θ .mask ⟩) scores In
+    --   Let sf     := map {bs ⊗ ah} (map {sl} ℙ) masked In
+    --   Let batt   := zipwith {bs ⊗ ah} (λ hsf hv → matmul {sl} hsf hv) sf bv In
+    --   Let att    := map {bs ⊗ sl} (cat (θ .att-eq)) (trᵢ {bs} batt) In
+    --   Let out    := map {bs ⊗ sl} (linear ⟨ θ .wo ⟩ 𝟘) att In
+    --   Let x₂     := out ⊞ x₀ In
+    --   -- Feed Forward
+    --   Let x₃   := map {bs ⊗ sl} rmsnorm x₂ In
+    --   Let up   := map {bs ⊗ sl} (linear ⟨ θ .wu ⟩ 𝟘) x₃ In
+    --   Let af   := relu up In
+    --   Let down := map {bs ⊗ sl} (linear ⟨ θ .wd ⟩ 𝟘) af In
+    --   Let x₄   := down ⊞ x₂ In
+    --   -- logits
+    --   Let logits := map {bs ⊗ sl} (linear ⟨ θ .wc ⟩ 𝟘) x₄ In
+    --   -- loss
+    --   avg (zipwith {bs ⊗ sl} (λ a b → cross-entropy a b) ⟨ target ⟩ logits)
+
     -- record GPTW (Γ : Ctx) (sl ed ah hd fd vo : S) : Set₁ where
     --   constructor gptw
     --   field
@@ -853,7 +888,7 @@ module Primitives where
     --     -- weights for queries, keys, values and output projection
     --     wkey wqry wval : E Γ $ ar $ (ah ⊗ hd) ⊗ ed
     --     wo : E Γ $ ar $ ed ⊗ ed
-    --     -- attention and padding mask
+    --     -- attn and padding mask
     --     mask : E Γ $ ar $ sl ⊗ sl
     --     -- up projection
     --     wu : E Γ $ ar $ fd ⊗ ed
@@ -893,7 +928,7 @@ module Primitives where
     --   Let wj := (assᵣ {bs} {sl} $ K {bs} (θ .wp) ⊞ ws) In
     --   Let x₀ := map {bs ⊗ sl} rmsnorm wj In
     --   Let x₁ := map {bs ⊗ sl} rmsnorm x₀ In
-    --   -- Attention
+    --   -- Attn
     --   Let k      :=
     --     trᵢ {bs} {sl} {ah} $ map {bs ⊗ sl} (linear ⟨ θ .wkey ⟩ 𝟘) x₁ In
     --   Let q      :=
@@ -904,7 +939,7 @@ module Primitives where
     --   Let masked := map {bs ⊗ ah} (λ x → x ⊞ ⟨ θ .mask ⟩) scores In
     --   Let sf     := map {bs ⊗ ah} (map {sl} ℙ) masked In
     --   Let batt   := zipwith {bs ⊗ ah} (λ hsf hv → matmul {sl} hsf hv) sf v In
-    --   Let att    := map {bs ⊗ sl} (merge (θ .att-eq)) (trᵢ {bs} batt) In
+    --   Let att    := map {bs ⊗ sl} (cat (θ .att-eq)) (trᵢ {bs} batt) In
     --   Let out    := map {bs ⊗ sl} (linear ⟨ θ .wo ⟩ 𝟘) att In
     --   Let x₂     := out ⊞ x₀ In
     --   -- Feed Forward
@@ -943,7 +978,7 @@ module Primitives where
     --   Let wj := (θ .wp) ⊞ ws In
     --   Let x₀ := map {sl} rmsnorm wj In --residual
     --   Let x₁ := map {sl} rmsnorm x₀ In
-    --   -- Attention
+    --   -- Attn
     --   Let k      := map {sl} (linear ⟨ θ .wkey ⟩ 𝟘) x₁ In
     --   Let q      := map {sl} (linear ⟨ θ .wqry ⟩ 𝟘) x₁ In
     --   Let v      := map {sl} (linear ⟨ θ .wval ⟩ 𝟘) x₁ In
@@ -954,7 +989,7 @@ module Primitives where
     --   Let masked := map {ah} (λ x → x ⊞ ⟨ θ .mask ⟩) scores In
     --   Let sf     := map {ah} (map {sl} ℙ) masked In
     --   Let batt   := zipwith {ah} (λ hsf hv → matmul {sl} hsf hv) sf bv In
-    --   Let att    := map {sl} (merge (θ .att-eq)) (trₗ {ah} {sl} batt) In
+    --   Let att    := map {sl} (cat (θ .att-eq)) (trₗ {ah} {sl} batt) In
     --   Let out    := map {sl} (linear ⟨ θ .wo ⟩ 𝟘) att In
     --   Let x₂     := out ⊞ x₀ In --residual
     --   -- Feed Forward
@@ -998,7 +1033,7 @@ module Primitives where
     --   Let x₀ := map {bs ⊗ sl} rmsnorm wj In --residual
     --   -- block
     --   Let x₁ := map {bs ⊗ sl} rmsnorm x₀ In
-    --   ---- attention
+    --   ---- attn
     --   ------ calculate key/query/val and swap dimensions
     --   Let k := trᵢ {bs} {sl} {ah} $
     --     map {bs ⊗ sl} {q = ah ⊗ hd} (linear ⟨ θ .wkey ⟩ 𝟘) x₁ In
@@ -1011,8 +1046,8 @@ module Primitives where
     --     (λ a b → (scaledown sc $ matmult {sl} a b) ⊠ ⟨ θ .mask ⟩) q k In
     --   ------ apply softmax to each row
     --   Let sf  := map {bs ⊗ ah} ℙ scores In
-    --   ------ multiply by val, swap dimensions, and merge
-    --   Let att := map (merge $ θ .att-eq) $ trᵢ {bs} {ah} {sl} $
+    --   ------ multiply by val, swap dimensions, and cat
+    --   Let att := map (cat $ θ .att-eq) $ trᵢ {bs} {ah} {sl} $
     --               zipwith {bs ⊗ ah} (matmul {sl}) sf v In
     --   Let out := map {bs ⊗ sl} {q = ed} (linear ⟨ θ .wo ⟩ 𝟘) att In
     --   Let x₂  := x₀ ⊞ out In --residual
@@ -1034,7 +1069,7 @@ module Primitives where
     --   Let x₀ := map {bs ⊗ sl} rmsnorm wj In --residual
     --   -- block
     --   Let x₁ := map {bs ⊗ sl} rmsnorm x₀ In
-    --   ---- attention
+    --   ---- attn
     --   ------ calculate key/query/val and swap dimensions
     --   Let k := trᵢ {bs} {sl} {ah} $
     --     map {bs ⊗ sl} {q = ah ⊗ hd} (linear ⟨ θ .wkey ⟩ 𝟘) x₁ In
@@ -1047,8 +1082,8 @@ module Primitives where
     --     (λ a b → (scaledown sc $ matmult {sl} a b) ⊠ ⟨ θ .mask ⟩) q k In
     --   ------ apply softmax to each row
     --   Let sf  := map {bs ⊗ ah} ℙ scores In
-    --   ------ multiply by val, swap dimensions, and merge
-    --   Let att := map (merge $ θ .att-eq) $ trᵢ {bs} {ah} {sl} $
+    --   ------ multiply by val, swap dimensions, and cat
+    --   Let att := map (cat $ θ .att-eq) $ trᵢ {bs} {ah} {sl} $
     --               zipwith {bs ⊗ ah} (matmul {sl}) sf v In
     --   Let out := map {bs ⊗ sl} {q = ed} (linear ⟨ θ .wo ⟩ 𝟘) att In
     --   Let x₂  := x₀ ⊞ out In --residual
