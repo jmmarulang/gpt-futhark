@@ -261,7 +261,7 @@ module Eval (r : Real) (rp : RealProp r) where
                              ∙ eval-cong e (sub-env-sdrop _ ▹ refl) []
   eval-sub (sels e e₁) ρ s [] = eval-sub e ρ s (eval (sub e₁ s) ρ)
                                 ∙ cong (eval e (sub-env s ρ)) (eval-sub e₁ ρ s)
-  eval-sub (mop {s = s} (imap-op refl) e) ρ su i with splitP {s = s} i
+  eval-sub (mop {s = s} (imapₒ refl) e) ρ su i with splitP {s = s} i
   ... | l , r = eval-sub e (ρ , l) _ r
                 ∙ eval-cong e ((sub-env-wks su (skip ⊆-eq)(ρ , l)
                                 ∙ᶜ sub-env-cong su wk-env-id) ▹ refl) r

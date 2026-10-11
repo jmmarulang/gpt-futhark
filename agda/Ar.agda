@@ -8,7 +8,7 @@ open import Data.Sum using (_⊎_; inj₁; inj₂)
 open import Data.Product as Prod using (∃; _,_; _×_; proj₁; proj₂)
 
 open import Data.List as L using (List; []; _∷_; foldl)
-open import Data.List.Properties using (∷ʳ-injective; ++-cancelʳ)
+open import Data.List.Properties using (∷ʳ-injective; ++-cancelʳ ; ++-assoc)
 open import Data.List.Relation.Unary.All as All using (All; []; _∷_)
 open import Relation.Binary.PropositionalEquality as P hiding ([_])
 open import Relation.Nullary
@@ -402,6 +402,9 @@ module _ where
   lastIx : suc p ≈ s → P s
   lastIx {p} {[]} pr = []
   lastIx {p ∷ ps} {x ∷ s} (cons {p = _} ⦃ refl ⦄ ⦃ b ⦄) = F.fromℕ p ∷ (lastIx b)
+
+  ⊗-assoc : (s ⊗ p) ⊗ q ≡ s ⊗ (p ⊗ q)
+  ⊗-assoc {s} {p} {q} = ++-assoc s p q
 
 module ArTests where
   imap : (s : S) → (P s → X) → Ar s X

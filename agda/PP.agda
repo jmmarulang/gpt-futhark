@@ -4,7 +4,7 @@
 module _ where
   open import Data.Bool
   open import Data.Nat.Show using () renaming (show to show-nat)
-  --open import Data.List as L using (List; []; _∷_)
+  open import Data.List as L using (List; []; _∷_)
   --open import Data.List.Relation.Unary.All as All using (All; []; _∷_)
   open import Relation.Binary.PropositionalEquality
   open import Relation.Nullary
@@ -49,20 +49,25 @@ module _ where
     modify suc
     return (fresh-name c)
 
+  shape-args : S → String
+  shape-args s = intersperse " " $ L.map show-nat s
+
+  dim : S → ℕ
+  dim s = L.length s
 
   -- bop : Bop -> String
   -- bop plus = "+"
   -- bop mul = "*"
 
   uopf : Uop → String
-  uopf neg-op = "-"
-  uopf relu-op = "relu"
-  uopf sqrt-op = "sqrt"
-  uopf inv-op = "inv"
-  uopf indp-op = "ind-positive"
-  uopf ln-op = "ln"
-  uopf softmax-op = "softmax"
-  uopf (scaledown-op x) = printf "scaledown %u" x
+  uopf ⊟ₒ = "-"
+  uopf reluₒ = "relu"
+  uopf √ₒ = "sqrt"
+  uopf 𝟙/ₒ = "inv"
+  uopf 𝕚+ₒ = "ind-positive"
+  uopf lnₒ = "ln"
+  uopf ℙₒ = "softmax"
+  uopf (scₒ x) = printf "scaledown %u" x
 
   pars : Bool → String → String
   pars true = printf "(%s)"
@@ -79,10 +84,10 @@ module _ where
   ppx p (var x) ρ = return (lookup x ρ)
   ppx p 𝟘 ρ = return "0"
   ppx p 𝟙 ρ = return "1"
-  ppx p (imaps e) ρ = do
+  ppx p (imaps {s = s} e) ρ = do
     iv ← fresh-var
     a ← ppx 0 e (ρ , iv)
-    return (pars (does (p >? precImap)) (printf "imaps λ %s → %s" iv a))
+    return (pars (does (p >? precImap)) (printf "imaps (%s) λ %s → %s" (shape-args s) iv a))
   ppx p (sels e e₁) ρ = do
     a ← ppx (1 + precApp) e ρ
     i ← ppx (1 + precApp) e₁ ρ
@@ -91,10 +96,10 @@ module _ where
     iv ← fresh-var
     a ← ppx 0 e (ρ , iv)
     return (pars (does (p >? precImap)) (printf "imap λ %s → %s" iv a))
-  ppx p (sel′ refl e e₁) ρ = do
+  ppx pr (sel′ {s = s} {p = p} refl e e₁) ρ = do
     a ← ppx (1 + precApp) e ρ
     i ← ppx (1 + precApp) e₁ ρ
-    return (pars (does (p >? precApp)) $ printf "sel %s %s" a i)
+    return (pars (does (pr >? precApp)) $ printf "sel (%s) (%s) %s %s" (shape-args s) (shape-args p) a i)
 
   ppx p (Lang.imapb x e) ρ = do
     iv ← fresh-var

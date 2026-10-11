@@ -219,8 +219,8 @@ module _ where
   grad (imap′ refl e)               s δ = grad-sum e (sel      (s ↑) (var v₀)) δ
   grad (Lang.imapb m e)          s δ = grad-sum e (Lang.selb m (s ↑) (var v₀)) δ
 
-  grad (sels e i)             s δ = grad e (imaps     (zero-but (var v₀) (i ↑) (s ↑))) δ
-  grad (sel′ refl e i)              s δ = grad e (imap      (zero-but (var v₀) (i ↑) (s ↑))) δ
+  grad (sels e i)             s δ = grad e (imaps (zero-but (var v₀) (i ↑) (s ↑))) δ
+  grad (sel′ refl e i)              s δ = grad e (imap (zero-but (var v₀) (i ↑) (s ↑))) δ
   grad (Lang.selb m e i)         s δ = grad e (Lang.imapb m (zero-but (var v₀) (i ↑) (s ↑))) δ
 
   grad (Lang.sum e)              s δ = grad-sum e (s ↑) δ

@@ -33,8 +33,8 @@ module Extract where
   open import Text.Printf
   open import Data.Product as Prod
   open import Data.Nat using (ℕ; zero; suc; _+_)
-  open import Data.List as L
-  open import Relation.Binary.PropositionalEquality
+  open import Data.List as L hiding ([_])
+  open import Relation.Binary.PropositionalEquality hiding ([_])
 
   open import Lang
   open import Ar hiding (r ; Ix)
@@ -45,7 +45,7 @@ module Extract where
   open import Effect.Monad.State
   open import Effect.Monad using (RawMonad)
   open RawMonadState {{...}} --public
-  open RawMonad {{...}} --public
+  open RawMonad {{...}} hiding (_⊗_)--public
 
   open import Data.Maybe hiding (_>>=_)
 
@@ -220,7 +220,7 @@ module Extract where
       v ← PP.pp x (named-ppenv ν)
       let n = proj₂ (runState fresh-var c) --fresh-var c
       r ← pretty-ee′ e ρ (ν ▹ n)
-      return $ printf "elet %s = %s\n\n%s" n v r
+      return $ printf "let' %s = %s\n\n%s" n v r
 
     pretty-ee : EE Γ Γ → NamedEnv Γ → String
     pretty-ee e ρ =
@@ -233,7 +233,7 @@ module Extract where
     ee-pretty e ρ = pretty-ee (ee-clean e) ρ
 
     pretty : E Γ (ar s) → NamedEnv Γ → String
-    pretty e ρ = ee-pretty ({- env-norm-lets $ -} grad e 𝟙 zero-ee) ρ
+    pretty e ρ = ee-pretty ({- env-norm-lets $ -} grad (multiopt e OPT) 𝟙 zero-ee) ρ
 
     seed-pretty : E Γ (ar s) → E Γ (ar s) → NamedEnv Γ → String
     seed-pretty e s ρ = ee-pretty ({- env-norm-lets $ -} grad e s zero-ee) ρ
@@ -241,26 +241,35 @@ module Extract where
   open Primitives
   open Microgpt
 
-  -- grad-gpt-loss-e = ee-OPT $ ee-dedup $ ee-OPT (grad gpt-loss-e 𝟙 zero-ee)
-
   bgpt-loss-s : String
   bgpt-loss-s = proj₂ (runState (to-str ( multiopt bgpt-loss-e OPT)
     (from-named
       (ε ▹ "wp" ▹ "wkey" ▹ "wqry" ▹ "wval" ▹ "wo"
          ▹ "mask" ▹ "wu" ▹ "wd" ▹ "wc" ▹ "ws" ▹ "target"))) 0)
 
-  bgpt-forward-s : String
-  bgpt-forward-s = proj₂ (runState (to-str ( multiopt bgpt-forward-e OPT)
-    (from-named
-      (ε ▹ "wp" ▹ "wkey" ▹ "wqry" ▹ "wval" ▹ "wo"
-         ▹ "mask" ▹ "wu" ▹ "wd" ▹ "wc" ▹ "ws"))) 0)
+  -- bgpt-forward-s : String
+  -- bgpt-forward-s = proj₂ (runState (to-str ( multiopt bgpt-forward-e OPT)
+  --   (from-named
+  --     (ε ▹ "wp" ▹ "wkey" ▹ "wqry" ▹ "wval" ▹ "wo"
+  --        ▹ "mask" ▹ "wu" ▹ "wd" ▹ "wc" ▹ "ws"))) 0)
+
+  grad-bgpt-loss-e = ee-OPT $ ee-dedup $ ee-OPT (grad bgpt-loss-e 𝟙 zero-ee)
+
+  grad-bgpt-loss-s : String
+  grad-bgpt-loss-s = pp bgpt-loss-e
+    (ε ▹ "mask" ▹ "wpe" ▹ "wqry" ▹ "wkey" ▹ "wval" ▹ "wout" ▹ "wup"
+       ▹ "wdown" ▹ "wvoc" ▹ "wseq" ▹ "target")
+
+  grad-bgpt-loss-pp = Pretty.pretty bgpt-loss-e
+    (ε ▹ "wp" ▹ "wkey" ▹ "wqry" ▹ "wval" ▹ "wo"
+         ▹ "mask" ▹ "wu" ▹ "wd" ▹ "wc" ▹ "ws" ▹ "target")
+
+  test : E _ _
+  test = Lcon (ar ((AH ⊗ (SL ⊗ HD))) ∷ []) (ar (SL)) ε
+    -- λ x → Imap {SL} λ k → Sum {AH ⊗ HD} λ i → sels (Imap {AH} λ j → sel (sel x j) k) i
+    λ x → Imap {SL} λ k → Sum {AH} λ i → Sum {HD} λ j → sels (sel (sel x i) k) j
+
+  grad-test-pp = Pretty.pretty test (ε ▹ "x")
 
 
-  -- grad-gpt-loss-s : String
-  -- grad-gpt-loss-s = pp gpt-loss-e
-  --   (ε ▹ "mask" ▹ "wpe" ▹ "wqry" ▹ "wkey" ▹ "wval" ▹ "wout" ▹ "wup"
-  --      ▹ "wdown" ▹ "wvoc" ▹ "wseq" ▹ "target")
-
-  -- grad-gpt-loss-pp = Pretty.pretty gpt-loss-e
-  --   (ε ▹ "mask" ▹ "wpe" ▹ "wqry" ▹ "wkey" ▹ "wval" ▹ "wout" ▹ "wup"
-      --  ▹ "wdown" ▹ "wvoc" ▹ "wseq" ▹ "target")
+-- let dx = imap λ x0 → imap λ x1 → sum λ x2 → sel (4 4) (4) (imaps (4 4) λ x3 → (zero-but x3 x2 1)) x0
