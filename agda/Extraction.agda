@@ -241,17 +241,17 @@ module Extract where
   open Primitives
   open Microgpt
 
+  bgpt-forward-s : String
+  bgpt-forward-s = proj₂ (runState (to-str ( multiopt bgpt-forward-e OPT)
+    (from-named
+      (ε ▹ "wp" ▹ "wkey" ▹ "wqry" ▹ "wval" ▹ "wo"
+         ▹ "mask" ▹ "wu" ▹ "wd" ▹ "wc" ▹ "ws"))) 0)
+
   bgpt-loss-s : String
   bgpt-loss-s = proj₂ (runState (to-str ( multiopt bgpt-loss-e OPT)
     (from-named
       (ε ▹ "wp" ▹ "wkey" ▹ "wqry" ▹ "wval" ▹ "wo"
          ▹ "mask" ▹ "wu" ▹ "wd" ▹ "wc" ▹ "ws" ▹ "target"))) 0)
-
-  -- bgpt-forward-s : String
-  -- bgpt-forward-s = proj₂ (runState (to-str ( multiopt bgpt-forward-e OPT)
-  --   (from-named
-  --     (ε ▹ "wp" ▹ "wkey" ▹ "wqry" ▹ "wval" ▹ "wo"
-  --        ▹ "mask" ▹ "wu" ▹ "wd" ▹ "wc" ▹ "ws"))) 0)
 
   grad-bgpt-loss-e = ee-OPT $ ee-dedup $ ee-OPT (grad bgpt-loss-e 𝟙 zero-ee)
 
@@ -266,10 +266,6 @@ module Extract where
 
   test : E _ _
   test = Lcon (ar ((AH ⊗ (SL ⊗ HD))) ∷ []) (ar (SL)) ε
-    -- λ x → Imap {SL} λ k → Sum {AH ⊗ HD} λ i → sels (Imap {AH} λ j → sel (sel x j) k) i
     λ x → Imap {SL} λ k → Sum {AH} λ i → Sum {HD} λ j → sels (sel (sel x i) k) j
 
   grad-test-pp = Pretty.pretty test (ε ▹ "x")
-
-
--- let dx = imap λ x0 → imap λ x1 → sum λ x2 → sel (4 4) (4) (imaps (4 4) λ x3 → (zero-but x3 x2 1)) x0

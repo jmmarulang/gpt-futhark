@@ -94,7 +94,6 @@ for step in range(ah):
 
 pwdic = { k : np.vectorize(mp.to_val)(v) for k, v in fwdic.items()}
 
-
 ones = np.ones((sl,sl))
 cau_mask = (ones - np.tril(ones))
 

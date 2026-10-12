@@ -530,37 +530,14 @@ module Primitives where
         → E (Γ ▹ ix p) $ ar r → E (Γ ▹ ix p) $ ar w)
       → E Γ $ ar $ p ⊗ s → E Γ $ ar $ p ⊗ q → E Γ $ ar $ p ⊗ r
       → E Γ $ ar $ p ⊗ w
-    zipwith₃ {p} f a b c = Imap {p} λ i → f (sel ⟨ a ⟩ i) (sel ⟨ b ⟩ i) (sel ⟨ c ⟩ i)
-
-    -- assᵣ : ∀ {Γ} → E Γ $ ar $ s ⊗ (p ⊗ q) → E Γ $ ar $ (s ⊗ p) ⊗ q
-    -- assᵣ {s} {p} {q} e = Imap {s ⊗ p} λ i → Imaps λ j →
-    --   sels (Imap {s} λ k → Imaps λ w → sels (sel (sel ⟨ e ⟩ k) w) j) i
-
-    -- DANGER : substitution
-    -- assᵣ : ∀ {Γ} → E Γ $ ar $ s ⊗ (p ⊗ q) → E Γ $ ar $ (s ⊗ p) ⊗ q
-    -- assᵣ {s} {p} {q} e rewrite (⊗-assoc {s} {p} {q}) = e
+    zipwith₃ {p} f a b c =
+      Imap {p} λ i → f (sel ⟨ a ⟩ i) (sel ⟨ b ⟩ i) (sel ⟨ c ⟩ i)
 
     tr : ∀ {Γ} → E Γ $ ar $ (s ⊗ p) → E Γ $ ar $ (p ⊗ s)
     tr {s} {p} e = Imap {p} λ i → Imaps λ j → sels (sel ⟨ e ⟩ j) i
 
-    -- assₗ : ∀ {Γ} → E Γ $ ar $ (s ⊗ p) ⊗ q → E Γ $ ar $ s ⊗ (p ⊗ q)
-    -- assₗ {s} {p} {q} e = Imap {s} λ i → Imap {p} λ j → Imaps λ k →
-    --   sels (sel (sel (tr {s ⊗ p} ⟨ e ⟩) k) i) j
-
-    -- DANGER : substitution
-    -- assₗ : ∀ {Γ} → E Γ $ ar $ (s ⊗ p) ⊗ q → E Γ $ ar $ s ⊗ (p ⊗ q)
-    -- assₗ {s} {p} {q} e rewrite (sym $ ⊗-assoc {s} {p} {q}) = e
-
-    -- trᵣ : ∀ {Γ} → E Γ (ar ((p ⊗ s) ⊗ u)) → E Γ (ar ((p ⊗ u) ⊗ s))
-    -- trᵣ {p} {s} {u} x = {!   !}
-
     trₗ : ∀ {Γ} → E Γ (ar (p ⊗ (s ⊗ u))) → E Γ (ar (s ⊗ (p ⊗ u)))
     trₗ {p} {s} {u} x = Imap {s} λ i → Imap {p} λ j → sel (sel ⟨ x ⟩ j) i
-
-    -- trᵢ : ∀ {Γ} → E Γ $ ar $ (s ⊗ p) ⊗ (q ⊗ r)
-    --   → E Γ $ ar $ (s ⊗ q) ⊗ (p ⊗ r)
-    -- trᵢ {s} {p} {q} {r} e = assᵣ {s} {q} $ Imap {s} λ i →
-    --   trₗ {p} {q} (sel (assₗ {s} ⟨ e ⟩) i)
 
     linear : ∀ {Γ} → E Γ $ ar $ p ⊗ s → E Γ $ ar p → E Γ $ ar s → E Γ $ ar p
     linear {s = s} w b x =
@@ -588,13 +565,8 @@ module Primitives where
       Let scale := √ (ms ⊞ (scaledown 100000 𝟙)) In
       Imaps λ i → (sels ⟨ x ⟩ i) // scale
 
-    m-rmsnorm : ∀ {Γ} → E Γ $ ar $ p ⊗ s → E Γ $ ar $ p ⊗ s
-    m-rmsnorm {p = p} {s = s} e =
-      Let xx := e ⊠ e In
-      Let ms :=
-        map {p} (λ x → scaledown (len s) (Sum (λ i → sels ⟨ x ⟩ i))) xx In
-      Let scale := √ (ms ⊞ (scaledown 100000 𝟙)) In
-      zipwith {p} (λ a b → a // Ks b) ⟨ e ⟩ scale
+    m-rmsnorm : ∀ {Γ} → E Γ (ar (s ⊗ p)) → E Γ (ar (s ⊗ p))
+    m-rmsnorm {s} {p} {Γ} x = Imap {s} λ i → rmsnorm (sel ⟨ x ⟩ i)
 
     split : s * p ≈ r → E Γ $ ar $ r → E Γ $ ar $ s ⊗ p
     split {s} eq x = Imap {s} λ i → selb eq ⟨ x ⟩ i
@@ -623,8 +595,8 @@ module Primitives where
         -- the embedding dimension matches the number of heads
         att-eq : ah * hd ≈ ed
         -- weights for queries, keys, values and output projection
-        wkey wqry wval : E Γ $ ar $ (ah ⊗ hd) ⊗ ed
-        wo : E Γ $ ar $ ed ⊗ (ah ⊗ hd)
+        wkey wqry wval : E Γ $ ar $ ed ⊗ ed
+        wo : E Γ $ ar $ ed ⊗ ed
         -- attn and padding mask
         mask : E Γ $ ar $ sl ⊗ sl
         -- up projection
@@ -656,37 +628,42 @@ module Primitives where
     ⟨_⟩ʷ : GPTW Γ sl ed ah hd fd vo → G-GPTW Γ sl ed ah hd fd vo
     ⟨_⟩ʷ p {Δ} ⦃ pf ⦄  = wk-gptp pf p
 
-    merge : ∀ {Γ} → ah * hd ≈ ed → E Γ $ ar $ (bs ⊗ sl) ⊗ (ah ⊗ hd)
-      → E Γ $ ar $ (bs ⊗ sl) ⊗ ed
-    merge {ah} {bs = bs} eq x = map {bs ⊗ _} (cat eq) x
-
     attn : ∀ {Γ} → (sc : ℕ) →
                    (mask : E Γ (ar (sl ⊗ sl)))
                    (qs ks vs : E Γ (ar (sl ⊗ hd)))
                   → E Γ (ar (sl ⊗ hd))
     attn {sl} {hd} {Γ} sc mask hq hk hv =
-      matmul {sl}
-        (map {sl} ℙ ((scaledown sc (matmult {sl} hq hk)) ⊞ ⟨ mask ⟩)) ⟨ hv ⟩
+      Let scores := map {sl} ℙ (scaledown sc (matmult {sl} hq hk) ⊞ ⟨ mask ⟩) In
+      matmul {sl} scores ⟨ hv ⟩
 
-    -- mh-attn : ∀ {Γ} → (sc : ℕ)
-    --             (mask : E Γ $ ar $ sl ⊗ sl)
-    --             (q k v : E Γ $ ar $ (bs ⊗ ah) ⊗ (sl ⊗ hd))
-    --             → E Γ $ ar $ (bs ⊗ ah) ⊗ (sl ⊗ hd)
-    -- mh-attn {sl = sl} {bs = bs} {ah = ah} sc mask q k v =
-    --   zipwith₃ {bs ⊗ ah} (attn {sl} sc ⟨ mask ⟩) q k v
-
-    -- mh-attn' : ∀ {Γ} → (sc : ℕ)
-    --             (mask : E Γ $ ar $ sl ⊗ sl)
-    --             (q k v : E Γ $ ar $ ah ⊗ (sl ⊗ hd))
-    --             → E Γ $ ar $ sl ⊗ (ah ⊗ hd)
-    -- mh-attn' = {!   !}
-
-    -- mh-attn : ∀ {Γ} → (sc : ℕ)
-    --             (mask : E Γ $ ar $ sl ⊗ sl)
-    --             (q k v : E Γ $ ar $ ah ⊗ (sl ⊗ hd))
-    --             → E Γ $ ar $ ah ⊗ (sl ⊗ hd)
-    -- mh-attn {sl = sl} {ah = ah} sc mask q k v =
-    --   zipwith₃ {ah} (attn {sl} sc ⟨ mask ⟩) q k v
+    bgpt-forward : ∀ {Γ} (sc : ℕ)
+                → GPTW Γ sl ed ah hd fd vo
+                → E Γ $ ar $ bs ⊗ (sl ⊗ ed)
+                → E Γ $ ar $ bs ⊗ (sl ⊗ vo)
+    bgpt-forward {sl} {ed} {ah} {hd} {fd} {vo} {bs} sc θ ws =
+      Let wj := map {bs} (⟨ θ .wp ⟩ ⊞_) ws In
+      Let x₀ := map {bs} (m-rmsnorm {sl}) wj In
+      Let x₁ := map {bs} (m-rmsnorm {sl}) x₀ In
+      Let q  := map {bs} (map {sl} (linear ⟨ θ .wqry ⟩ 𝟘)) x₁ In
+      Let k  := map {bs} (map {sl} (linear ⟨ θ .wkey ⟩ 𝟘)) x₁ In
+      Let v  := map {bs} (map {sl} (linear ⟨ θ .wval ⟩ 𝟘)) x₁ In
+      Let bq  := map {bs} (map {sl} (split (θ .att-eq))) q In
+      Let bk  := map {bs} (map {sl} (split (θ .att-eq))) k In
+      Let bv  := map {bs} (map {sl} (split (θ .att-eq))) v In
+      Let sq  := map {bs} (trₗ {sl} {ah}) bq In
+      Let sk  := map {bs} (trₗ {sl} {ah}) bk In
+      Let sv  := map {bs} (trₗ {sl} {ah}) bv In
+      Let sattn := zipwith₃ {bs} (zipwith₃ {ah} (attn {sl} sc ⟨ θ .mask ⟩)) sq sk sv In
+      Let battn := map {bs} (trₗ {ah} {sl}) sattn In
+      Let attn := map {bs} (map {sl} $ cat (θ .att-eq)) battn In
+      Let out := map {bs} (map {sl} (linear ⟨ θ .wo ⟩ 𝟘)) attn In
+      Let x₂ := x₀ ⊞ out In
+      Let x₃ := map {bs} (m-rmsnorm {sl}) x₂ In
+      Let up := map {bs} (map {sl} (linear ⟨ θ .wu ⟩ 𝟘)) x₃ In
+      Let rl := relu up In
+      Let down := map {bs} (map {sl} (linear ⟨ θ .wd ⟩ 𝟘)) rl In
+      Let x₄ := x₂ ⊞ down In
+      map {bs} (map {sl} (linear ⟨ θ .wc ⟩ 𝟘)) x₄
 
     bgpt-loss : ∀ {Γ} (sc : ℕ)
                 → GPTW Γ sl ed ah hd fd vo
@@ -694,141 +671,36 @@ module Primitives where
                 → E Γ $ ar $ bs ⊗ (sl ⊗ vo)
                 → E Γ $ ar $ []
     bgpt-loss {sl} {ed} {ah} {hd} {fd} {vo} {bs} sc θ ws target =
-      -- embedding
-      Let x₀ := map {bs} (m-rmsnorm {sl}) (map {bs} (⟨ θ .wp ⟩ ⊞_) ws) In
-      -- attention
-      Let x₁ := map {bs} (m-rmsnorm {sl}) x₀ In
-      Let q  := map {bs} (map {sl} (linear ⟨ θ .wqry ⟩ 𝟘)) x₁ In
-      Let k  := map {bs} (map {sl} (linear ⟨ θ .wkey ⟩ 𝟘)) x₁ In
-      Let v  := map {bs} (map {sl} (linear ⟨ θ .wval ⟩ 𝟘)) x₁ In
-      Let satt := zipwith₃ {bs} (zipwith₃ {ah} (attn {sl} sc ⟨ θ .mask ⟩))
-        (map {bs} (trₗ {sl} {ah}) q)
-        (map {bs} (trₗ {sl} {ah}) k)
-        (map {bs} (trₗ {sl} {ah}) v) In
-      Let x₂ :=  x₀ ⊞ (map {bs} (map {sl} (linear₃ {s = ah} ⟨ θ .wo ⟩ 𝟘)) (map {bs} (trₗ {ah} {sl}) satt)) In
-      -- feed forward
-      Let x₃ := map {bs} (m-rmsnorm {sl}) x₂ In
-      Let rl := relu (map {bs} (map {sl} (linear ⟨ θ .wu ⟩ 𝟘)) x₃) In
-      Let down := map {bs} (map {sl} (linear ⟨ θ .wd ⟩ 𝟘)) rl In
-      Let x₄ := x₂ ⊞ down In
-      -- logits
-      Let logits := map {bs} (map {sl} (linear ⟨ θ .wc ⟩ 𝟘)) x₄ In
-      -- loss
+      Let logits := bgpt-forward {bs = bs} sc θ ws In
       Let probs := map {bs} (map {sl} ℙ) logits In
       Let cross := zipwith {bs} (zipwith {sl} cross-entropy) ⟨ target ⟩ probs In
       avg cross
 
-    -- bgpt-loss' : ∀ {Γ} (sc : ℕ)
-    --             → GPTW Γ sl ed ah hd fd vo
-    --             → E Γ $ ar $ bs ⊗ (sl ⊗ ed)
-    --             → E Γ $ ar $ bs ⊗ (sl ⊗ vo)
-    --             → E Γ $ ar $ []
-    -- bgpt-loss' 
 
-    -- bgpt-forward : ∀ {Γ} (sc : ℕ)
-    --             → GPTW Γ sl ed ah hd fd vo
-    --             → E Γ (ar (bs ⊗ (sl ⊗ ed)))
-    --             → E Γ (ar ((bs ⊗ sl) ⊗ vo))
-    -- bgpt-forward {sl} {ed} {ah} {hd} {fd} {vo} {bs} sc θ ws =
-    --   -- embedding
-    --   Let x₀ := m-rmsnorm {bs ⊗ sl} (assᵣ {bs} {sl} $ K {bs} (θ .wp) ⊞ ws) In
-    --   Let x₁ := m-rmsnorm {bs ⊗ sl} x₀ In
-    --   -- attention
-    --   Let att := merge {bs = bs} (θ .att-eq) $
-    --     mh-attn {sl = sl} {bs = bs} sc ⟨ θ .mask ⟩
-    --     (query ⟨ θ ⟩ʷ x₁) (key ⟨ θ ⟩ʷ x₁) (value ⟨ θ ⟩ʷ x₁) In
-    --   Let x₂ := x₀ ⊞ (map {bs ⊗ sl} (linear ⟨ θ .wo ⟩ 𝟘) att) In
-    --   -- feed forward and logits
-    --   Let x₃ := m-rmsnorm {bs ⊗ sl} x₂ In
-    --     (map {bs ⊗ sl} (linear ⟨ θ .wc ⟩ 𝟘) $
-    --     x₂ ⊞_ $ map {bs ⊗ sl} (linear ⟨ θ .wd ⟩ 𝟘) $
-    --     relu $ map {bs ⊗ sl} (linear ⟨ θ .wu ⟩ 𝟘) x₃)
-
-    -- bgpt-loss : ∀ {Γ} (sc : ℕ)
-    --             → GPTW Γ sl ed ah hd fd vo
-    --             → E Γ (ar (bs ⊗ (sl ⊗ ed)))
-    --             → E Γ (ar ((bs ⊗ sl) ⊗ vo))
-    --             → E Γ (ar [])
-    -- bgpt-loss {sl} {ed} {ah} {hd} {fd} {vo} {bs} sc θ ws target =
-    --   -- embedding
-    --   Let wj := map {bs} (⟨ θ .wp ⟩ ⊞_) ws In
-    --   Let x₀ := m-rmsnorm {bs ⊗ sl} $ assᵣ {bs} {sl} wj In
-    --   -- attention
-    --   Let x₁ := m-rmsnorm {bs ⊗ sl} x₀ In
-    --   Let q  := map {bs ⊗ sl} (linear ⟨ θ .wqry ⟩ 𝟘) x₁ In
-    --   Let k  := map {bs ⊗ sl} (linear ⟨ θ .wkey ⟩ 𝟘) x₁ In
-    --   Let v  := map {bs ⊗ sl} (linear ⟨ θ .wval ⟩ 𝟘) x₁ In
-    --   Let bq := map {bs ⊗ sl} (split $ θ .att-eq) q In
-    --   Let bk := map {bs ⊗ sl} (split $ θ .att-eq) k In
-    --   Let bv := map {bs ⊗ sl} (split $ θ .att-eq) v In
-    --   Let satt :=
-    --     mh-attn {sl = sl} {bs = bs} sc ⟨ θ .mask ⟩
-    --     (trᵢ {bs} {sl} {ah} bq)
-    --     (trᵢ {bs} {sl} {ah} bk)
-    --     (trᵢ {bs} {sl} {ah} bv) In
-    --   Let att := map {bs ⊗ sl} (cat $ θ .att-eq) $ trᵢ {bs} {ah} satt In
-    --   Let out := (map {bs ⊗ sl} (linear ⟨ θ .wo ⟩ 𝟘) att) In
-    --   Let x₂ := x₀ ⊞ out In
-    --   -- feed forward and logits
-    --   Let x₃ := m-rmsnorm {bs ⊗ sl} x₂ In
-    --   Let up := map {bs ⊗ sl} (linear ⟨ θ .wu ⟩ 𝟘) x₃ In
-    --   Let rl := relu up In
-    --   Let down := map {bs ⊗ sl} (linear ⟨ θ .wd ⟩ 𝟘) rl In
-    --   Let x₄ := x₂ ⊞_ $ down In
-    --   Let logits := (map {bs ⊗ sl} (linear ⟨ θ .wc ⟩ 𝟘) x₄) In
-    --   -- loss
-    --   Let probs := map {bs ⊗ sl} ℙ logits In
-    --   Let cross :=
-    --     zipwith {bs ⊗ sl} (λ a b → cross-entropy a b) ⟨ target ⟩ probs In
-    --   avg cross
-
-    -- bgpt-loss : ∀ {Γ} (sc : ℕ)
-    --             → GPTW Γ sl ed ah hd fd vo
-    --             → E Γ (ar (bs ⊗ (sl ⊗ ed)))
-    --             → E Γ (ar ((bs ⊗ sl) ⊗ vo))
-    --             → E Γ (ar [])
-    -- bgpt-loss {sl} {ed} {ah} {hd} {fd} {vo} {bs} sc θ ws target =
-    --   -- embedding
-    --   Let x₀ := m-rmsnorm {bs ⊗ sl} (assᵣ {bs} {sl} $ K {bs} (θ .wp) ⊞ ws) In
-    --   -- attention
-    --   Let x₁ := m-rmsnorm {bs ⊗ sl} x₀ In
-    --   Let att := merge {bs = bs} (θ .att-eq) $
-    --     mh-attn {sl = sl} {bs = bs} sc ⟨ θ .mask ⟩
-    --     (query ⟨ θ ⟩ʷ x₁) (key ⟨ θ ⟩ʷ x₁) (value ⟨ θ ⟩ʷ x₁) In
-    --   Let x₂ := x₀ ⊞ (map {bs ⊗ sl} (linear ⟨ θ .wo ⟩ 𝟘) att) In
-    --   -- feed forward and logits
-    --   Let x₃ := m-rmsnorm {bs ⊗ sl} x₂ In
-    --   Let logits := (map {bs ⊗ sl} (linear ⟨ θ .wc ⟩ 𝟘) $
-    --     x₂ ⊞_ $ map {bs ⊗ sl} (linear ⟨ θ .wd ⟩ 𝟘) $
-    --     relu $ map {bs ⊗ sl} (linear ⟨ θ .wu ⟩ 𝟘) x₃) In
-    --   -- loss
-    --   Let probs := map {bs ⊗ sl} ℙ logits In
-    --   avg (zipwith {bs ⊗ sl} (λ a b → cross-entropy a b) ⟨ target ⟩ probs)
-
-    -- bgpt-forward-e : E _ _
-    -- bgpt-forward-e = Lcon (
-    --                 ar (SL ⊗ ED) --wp
-    --               ∷ ar (ED ⊗ ED) --wkey
-    --               ∷ ar (ED ⊗ ED) --wqry
-    --               ∷ ar (ED ⊗ ED) --wval
-    --               ∷ ar (ED ⊗ ED) --wo
-    --               ∷ ar (SL ⊗ SL) --mask
-    --               ∷ ar (FD ⊗ ED) --wu
-    --               ∷ ar (ED ⊗ FD) --wd
-    --               ∷ ar (VO ⊗ ED) --wc
-    --               ∷ ar (BS ⊗ (SL ⊗ ED)) --ws
-    --               ∷ []) (ar $ BS ⊗ (SL ⊗ VO)) ε
-    --               λ wp wkey wqry wval wo mask wu wd wc ws
-    --               → let θ = gptw wp PR wkey wqry wval wo mask wu wd wc in
-    --                 bgpt-forward {sl = SL} {vo = VO} {bs = BS} SC θ ws
+    bgpt-forward-e : E _ _
+    bgpt-forward-e = Lcon (
+                    ar (SL ⊗ ED) --wp
+                  ∷ ar (ED ⊗ ED) --wkey
+                  ∷ ar (ED ⊗ ED) --wqry
+                  ∷ ar (ED ⊗ ED) --wval
+                  ∷ ar (ED ⊗ ED) --wo
+                  ∷ ar (SL ⊗ SL) --mask
+                  ∷ ar (FD ⊗ ED) --wu
+                  ∷ ar (ED ⊗ FD) --wd
+                  ∷ ar (VO ⊗ ED) --wc
+                  ∷ ar (BS ⊗ (SL ⊗ ED)) --ws
+                  ∷ []) (ar ((BS ⊗ SL) ⊗ VO) ) ε
+                  λ wp wkey wqry wval wo mask wu wd wc ws
+                  → let θ = gptw wp PR wkey wqry wval wo mask wu wd wc in
+                    bgpt-forward {sl = SL} {vo = VO} {bs = BS} SC θ ws
 
     bgpt-loss-e : E _ _
     bgpt-loss-e = Lcon (
                     ar (SL ⊗ ED) --wp
-                  ∷ ar ((AH ⊗ HD) ⊗ ED) --wkey
-                  ∷ ar ((AH ⊗ HD) ⊗ ED) --wqry
-                  ∷ ar ((AH ⊗ HD) ⊗ ED) --wval
-                  ∷ ar (ED ⊗ (AH ⊗ HD)) --wo
+                  ∷ ar (ED ⊗ ED) --wkey
+                  ∷ ar (ED ⊗ ED) --wqry
+                  ∷ ar (ED ⊗ ED) --wval
+                  ∷ ar (ED ⊗ ED) --wo
                   ∷ ar (SL ⊗ SL) --mask
                   ∷ ar (FD ⊗ ED) --wu
                   ∷ ar (ED ⊗ FD) --wd
@@ -839,375 +711,3 @@ module Primitives where
                   λ wp wkey wqry wval wo mask wu wd wc ws target
                   → let θ = gptw wp PR wkey wqry wval wo mask wu wd wc in
                     bgpt-loss {sl = SL} {vo = VO} {bs = BS} SC θ ws target
-
-      -- avg (zipwith {bs} (λ x y → mgpt-loss sc ⟨ θ ⟩ʷ x y) ws (assₗ {bs} target))
-
-    -- mgpt-forward : ∀ {Γ} (sc : ℕ)
-    --                → GPTW Γ sl ed ah hd fd vo
-    --                → E Γ (ar (sl ⊗ ed))
-    --                → E Γ (ar (sl ⊗ vo))
-    -- mgpt-forward {sl} {ed} {ah} {hd} {fd} {vo} sc θ ws =
-    --   -- Embedding
-    --   Let wj := (θ .wp) ⊞ ws In
-    --   Let x₀ := map {sl} rmsnorm wj In --residual
-    --   Let x₁ := map {sl} rmsnorm x₀ In
-    --   -- Attn
-    --   Let k      := map {sl} (linear ⟨ θ .wkey ⟩ 𝟘) x₁ In
-    --   Let q      := map {sl} (linear ⟨ θ .wqry ⟩ 𝟘) x₁ In
-    --   Let v      := map {sl} (linear ⟨ θ .wval ⟩ 𝟘) x₁ In
-    --   Let bk     := trₗ {sl} {ah} $ map {sl} (split (θ .att-eq)) k In
-    --   Let bq     := trₗ {sl} {ah} $ map {sl} (split (θ .att-eq)) q In
-    --   Let bv     := trₗ {sl} {ah} $ map {sl} (split (θ .att-eq)) v In
-    --   -- Let scores := zipwith {ah} (λ hq hk → matmult {sl} hq hk) bq bk In
-    --   -- Let masked := map {ah} (λ x → x ⊞ ⟨ θ .mask ⟩) scores In
-    --   -- Let sf     := map {ah} (map {sl} ℙ) masked In
-    --   -- Let batt   := zipwith {ah} (λ hsf hv → matmul {sl} hsf hv) sf bv In
-    --   Let batt := mh-attn' {sl} {ah} sc ⟨ θ .mask ⟩ bq bk bv In
-    --   Let att    := map {sl} (cat (θ .att-eq)) (trₗ {ah} {sl} batt) In
-    --   Let out    := map {sl} (linear ⟨ θ .wo ⟩ 𝟘) att In
-    --   Let x₂     := out ⊞ x₀ In --residual
-    --   -- Feed Forward
-    --   Let x₃   := map {sl} rmsnorm x₂ In
-    --   Let up   := map {sl} (linear ⟨ θ .wu ⟩ 𝟘) x₃ In
-    --   Let af   := relu up In
-    --   Let down := map {sl} (linear ⟨ θ .wd ⟩ 𝟘) af In
-    --   Let x₄   := down ⊞ x₂ In
-    --   -- logits
-    --   map {sl} (linear ⟨ θ .wc ⟩ 𝟘) x₄
-
-    -- mgpt-loss : ∀ {Γ} (sc : ℕ)
-    --                → GPTW Γ sl ed ah hd fd vo
-    --                → E Γ (ar (sl ⊗ ed))
-    --                → E Γ (ar (sl ⊗ vo))
-    --                → E Γ (ar [])
-    -- mgpt-loss {sl} {ed} {ah} {hd} {fd} {vo} sc θ ws target =
-    --   Let logits := mgpt-forward sc θ ws In
-    --   avg (zipwith {sl} (λ a b → cross-entropy a b) ⟨ target ⟩ logits)
-
-    -- bgpt-forward : ∀ {Γ} (sc : ℕ)
-    --             → GPTW Γ sl ed ah hd fd vo
-    --             → E Γ (ar (bs ⊗ (sl ⊗ ed)))
-    --             → E Γ (ar (bs ⊗ (sl ⊗ vo)))
-    -- bgpt-forward {sl} {ed} {ah} {hd} {fd} {vo} {bs} sc θ ws =
-    --   -- Embedding
-    --   Let wj := (assᵣ {bs} {sl} $ K {bs} (θ .wp) ⊞ ws) In
-    --   Let x₀ := map {bs ⊗ sl} rmsnorm wj In
-    --   Let x₁ := map {bs ⊗ sl} rmsnorm x₀ In
-    --   -- Attn
-    --   Let k      := map {bs ⊗ sl} (linear ⟨ θ .wkey ⟩ 𝟘) x₁ In
-    --   Let q      := map {bs ⊗ sl} (linear ⟨ θ .wqry ⟩ 𝟘) x₁ In
-    --   Let v      := map {bs ⊗ sl} (linear ⟨ θ .wval ⟩ 𝟘) x₁ In
-    --   Let bk     :=
-    --     trᵢ {bs} {sl} {ah} $ map {bs ⊗ sl} (split (θ .att-eq)) k In
-    --   Let bq     :=
-    --     trᵢ {bs} {sl} {ah} $ map {bs ⊗ sl} (split (θ .att-eq)) q In
-    --   Let bv     :=
-    --     trᵢ {bs} {sl} {ah} $ map {bs ⊗ sl} (split (θ .att-eq)) v In
-    --   Let scores := zipwith {bs ⊗ ah} (λ hq hk → matmult {sl} hq hk) bq bk In
-    --   Let masked := map {bs ⊗ ah} (λ x → x ⊞ ⟨ θ .mask ⟩) scores In
-    --   Let sf     := map {bs ⊗ ah} (map {sl} ℙ) masked In
-    --   Let batt   := zipwith {bs ⊗ ah} (λ hsf hv → matmul {sl} hsf hv) sf bv In
-    --   Let att    := map {bs ⊗ sl} (cat (θ .att-eq)) (trᵢ {bs} batt) In
-    --   Let out    := map {bs ⊗ sl} (linear ⟨ θ .wo ⟩ 𝟘) att In
-    --   Let x₂     := out ⊞ x₀ In
-    --   -- Feed Forward
-    --   Let x₃   := map {bs ⊗ sl} rmsnorm x₂ In
-    --   Let up   := map {bs ⊗ sl} (linear ⟨ θ .wu ⟩ 𝟘) x₃ In
-    --   Let af   := relu up In
-    --   Let down := map {bs ⊗ sl} (linear ⟨ θ .wd ⟩ 𝟘) af In
-    --   Let x₄   := down ⊞ x₂ In
-    --   -- logits
-    --   assₗ {bs} {sl} (map {bs ⊗ sl} (linear ⟨ θ .wc ⟩ 𝟘) x₄)
-
-    -- bgpt-loss : ∀ {Γ} (sc : ℕ)
-    --             → GPTW Γ sl ed ah hd fd vo
-    --             → E Γ (ar (bs ⊗ (sl ⊗ ed)))
-    --             → E Γ (ar ((bs ⊗ sl) ⊗ vo))
-    --             → E Γ (ar [])
-    -- bgpt-loss {sl} {ed} {ah} {hd} {fd} {vo} {bs} sc θ ws target =
-    --   -- Embedding
-    --   Let wj := (assᵣ {bs} {sl} $ K {bs} (θ .wp) ⊞ ws) In
-    --   Let x₀ := map {bs ⊗ sl} rmsnorm wj In
-    --   Let x₁ := map {bs ⊗ sl} rmsnorm x₀ In
-    --   -- Attn
-    --   Let k      := map {bs ⊗ sl} (linear ⟨ θ .wkey ⟩ 𝟘) x₁ In
-    --   Let q      := map {bs ⊗ sl} (linear ⟨ θ .wqry ⟩ 𝟘) x₁ In
-    --   Let v      := map {bs ⊗ sl} (linear ⟨ θ .wval ⟩ 𝟘) x₁ In
-    --   Let bk     :=
-    --     trᵢ {bs} {sl} {ah} $ map {bs ⊗ sl} (split (θ .att-eq)) k In
-    --   Let bq     :=
-    --     trᵢ {bs} {sl} {ah} $ map {bs ⊗ sl} (split (θ .att-eq)) q In
-    --   Let bv     :=
-    --     trᵢ {bs} {sl} {ah} $ map {bs ⊗ sl} (split (θ .att-eq)) v In
-    --   Let scores := zipwith {bs ⊗ ah} (λ hq hk → matmult {sl} hq hk) bq bk In
-    --   Let masked := map {bs ⊗ ah} (λ x → x ⊞ ⟨ θ .mask ⟩) scores In
-    --   Let sf     := map {bs ⊗ ah} (map {sl} ℙ) masked In
-    --   Let batt   := zipwith {bs ⊗ ah} (λ hsf hv → matmul {sl} hsf hv) sf bv In
-    --   Let att    := map {bs ⊗ sl} (cat (θ .att-eq)) (trᵢ {bs} batt) In
-    --   Let out    := map {bs ⊗ sl} (linear ⟨ θ .wo ⟩ 𝟘) att In
-    --   Let x₂     := out ⊞ x₀ In
-    --   -- Feed Forward
-    --   Let x₃   := map {bs ⊗ sl} rmsnorm x₂ In
-    --   Let up   := map {bs ⊗ sl} (linear ⟨ θ .wu ⟩ 𝟘) x₃ In
-    --   Let af   := relu up In
-    --   Let down := map {bs ⊗ sl} (linear ⟨ θ .wd ⟩ 𝟘) af In
-    --   Let x₄   := down ⊞ x₂ In
-    --   -- logits
-    --   Let logits := map {bs ⊗ sl} (linear ⟨ θ .wc ⟩ 𝟘) x₄ In
-    --   -- loss
-    --   avg (zipwith {bs ⊗ sl} (λ a b → cross-entropy a b) ⟨ target ⟩ logits)
-
-    -- record GPTW (Γ : Ctx) (sl ed ah hd fd vo : S) : Set₁ where
-    --   constructor gptw
-    --   field
-    --     -- position embedding
-    --     wp : E Γ $ ar $ sl ⊗ ed
-    --     -- the embedding dimension matches the number of heads
-    --     att-eq : ah * hd ≈ ed
-    --     -- weights for queries, keys, values and output projection
-    --     wkey wqry wval : E Γ $ ar $ (ah ⊗ hd) ⊗ ed
-    --     wo : E Γ $ ar $ ed ⊗ ed
-    --     -- attn and padding mask
-    --     mask : E Γ $ ar $ sl ⊗ sl
-    --     -- up projection
-    --     wu : E Γ $ ar $ fd ⊗ ed
-    --     -- down projection
-    --     wd : E Γ $ ar $ ed ⊗ fd
-    --     -- output projection into vocabulary size
-    --     wc : E Γ $ ar $ vo ⊗ ed
-    -- open GPTW
-
-    -- wk-gptp : Prefix Γ Δ → GPTW Γ sl ed ah hd fd vo → GPTW Δ sl ed ah hd fd vo
-    -- wk-gptp pr p = record
-    --   { wp = wk (fromPrefix pr) (p .wp)
-    --   ; att-eq = p .att-eq
-    --   ; wqry = wk (fromPrefix pr) (p .wqry)
-    --   ; wkey = wk (fromPrefix pr) (p .wkey)
-    --   ; wval = wk (fromPrefix pr) (p .wval)
-    --   ; wo = wk (fromPrefix pr) (p .wo)
-    --   ; mask = wk (fromPrefix pr) (p .mask)
-    --   ; wu = wk (fromPrefix pr) (p .wu)
-    --   ; wd = wk (fromPrefix pr) (p .wd)
-    --   ; wc = wk (fromPrefix pr) (p .wc)
-    --   }
-
-    -- G-GPTW : Ctx → S → S → S → S → S → S → Set₁
-    -- G-GPTW Γ sl ed ah hd fd vo =
-    --   ∀ {Δ} → ⦃ Prefix Γ Δ ⦄ → GPTW Δ sl ed ah hd fd vo
-
-    -- ⟨_⟩ʷ : GPTW Γ sl ed ah hd fd vo → G-GPTW Γ sl ed ah hd fd vo
-    -- ⟨_⟩ʷ p {Δ} ⦃ pf ⦄  = wk-gptp pf p
-
-    -- bgpt-forward : ∀ {Γ} (sc : ℕ)
-    --             → GPTW Γ sl ed ah hd fd vo
-    --             → E Γ (ar (bs ⊗ (sl ⊗ ed)))
-    --             → E Γ (ar (bs ⊗ (sl ⊗ vo)))
-    -- bgpt-forward {sl} {ed} {ah} {hd} {fd} {vo} {bs} sc θ ws =
-    --   -- Embedding
-    --   Let wj := (assᵣ {bs} {sl} $ K {bs} (θ .wp) ⊞ ws) In
-    --   Let x₀ := map {bs ⊗ sl} rmsnorm wj In
-    --   Let x₁ := map {bs ⊗ sl} rmsnorm x₀ In
-    --   -- Attn
-    --   Let k      :=
-    --     trᵢ {bs} {sl} {ah} $ map {bs ⊗ sl} (linear ⟨ θ .wkey ⟩ 𝟘) x₁ In
-    --   Let q      :=
-    --     trᵢ {bs} {sl} {ah} $ map {bs ⊗ sl} (linear ⟨ θ .wqry ⟩ 𝟘) x₁ In
-    --   Let v      :=
-    --     trᵢ {bs} {sl} {ah} $ map {bs ⊗ sl} (linear ⟨ θ .wval ⟩ 𝟘) x₁ In
-    --   Let scores := zipwith {bs ⊗ ah} (λ hq hk → matmult {sl} hq hk) q k In
-    --   Let masked := map {bs ⊗ ah} (λ x → x ⊞ ⟨ θ .mask ⟩) scores In
-    --   Let sf     := map {bs ⊗ ah} (map {sl} ℙ) masked In
-    --   Let batt   := zipwith {bs ⊗ ah} (λ hsf hv → matmul {sl} hsf hv) sf v In
-    --   Let att    := map {bs ⊗ sl} (cat (θ .att-eq)) (trᵢ {bs} batt) In
-    --   Let out    := map {bs ⊗ sl} (linear ⟨ θ .wo ⟩ 𝟘) att In
-    --   Let x₂     := out ⊞ x₀ In
-    --   -- Feed Forward
-    --   Let x₃   := map {bs ⊗ sl} rmsnorm x₂ In
-    --   Let up   := map {bs ⊗ sl} (linear ⟨ θ .wu ⟩ 𝟘) x₃ In
-    --   Let af   := relu up In
-    --   Let down := map {bs ⊗ sl} (linear ⟨ θ .wd ⟩ 𝟘) af In
-    --   Let x₄   := down ⊞ x₂ In
-    --   -- logits
-    --   assₗ {bs} {sl} (map {bs ⊗ sl} (linear ⟨ θ .wc ⟩ 𝟘) x₄)
-
-    -- bgpt-forward-e : E _ _
-    -- bgpt-forward-e = Lcon (
-    --                 ar (SL ⊗ ED) --wp
-    --               ∷ ar ((AH ⊗ HD) ⊗ ED) --wkey
-    --               ∷ ar ((AH ⊗ HD) ⊗ ED) --wqry
-    --               ∷ ar ((AH ⊗ HD) ⊗ ED) --wval
-    --               ∷ ar (ED ⊗ ED) --wo
-    --               ∷ ar (SL ⊗ SL) --mask
-    --               ∷ ar (FD ⊗ ED) --wu
-    --               ∷ ar (ED ⊗ FD) --wd
-    --               ∷ ar (VO ⊗ ED) --wc
-    --               ∷ ar (BS ⊗ (SL ⊗ ED)) --ws
-    --               ∷ []) (ar $ BS ⊗ (SL ⊗ VO)) ε
-    --               λ wp wkey wqry wval wo mask wu wd wc ws
-    --               → let θ = gptw wp PR wkey wqry wval wo mask wu wd wc in
-    --                 bgpt-forward {sl = SL} {vo = VO} {bs = BS} SC θ ws
-
-
-    -- mgpt-forward : ∀ {Γ} (sc : ℕ)
-    --                → GPTW Γ sl ed ah hd fd vo
-    --                → E Γ (ar (sl ⊗ ed))
-    --                → E Γ (ar (sl ⊗ vo))
-    -- mgpt-forward {sl} {ed} {ah} {hd} {fd} {vo} sc θ ws =
-    --   -- Embedding
-    --   Let wj := (θ .wp) ⊞ ws In
-    --   Let x₀ := map {sl} rmsnorm wj In --residual
-    --   Let x₁ := map {sl} rmsnorm x₀ In
-    --   -- Attn
-    --   Let k      := map {sl} (linear ⟨ θ .wkey ⟩ 𝟘) x₁ In
-    --   Let q      := map {sl} (linear ⟨ θ .wqry ⟩ 𝟘) x₁ In
-    --   Let v      := map {sl} (linear ⟨ θ .wval ⟩ 𝟘) x₁ In
-    --   Let bk     := trₗ {sl} {ah} $ map {sl} (split (θ .att-eq)) k In
-    --   Let bq     := trₗ {sl} {ah} $ map {sl} (split (θ .att-eq)) q In
-    --   Let bv     := trₗ {sl} {ah} $ map {sl} (split (θ .att-eq)) v In
-    --   Let scores := zipwith {ah} (λ hq hk → matmult {sl} hq hk) bq bk In
-    --   Let masked := map {ah} (λ x → x ⊞ ⟨ θ .mask ⟩) scores In
-    --   Let sf     := map {ah} (map {sl} ℙ) masked In
-    --   Let batt   := zipwith {ah} (λ hsf hv → matmul {sl} hsf hv) sf bv In
-    --   Let att    := map {sl} (cat (θ .att-eq)) (trₗ {ah} {sl} batt) In
-    --   Let out    := map {sl} (linear ⟨ θ .wo ⟩ 𝟘) att In
-    --   Let x₂     := out ⊞ x₀ In --residual
-    --   -- Feed Forward
-    --   Let x₃   := map {sl} rmsnorm x₂ In
-    --   Let up   := map {sl} (linear ⟨ θ .wu ⟩ 𝟘) x₃ In
-    --   Let af   := relu up In
-    --   Let down := map {sl} (linear ⟨ θ .wd ⟩ 𝟘) af In
-    --   Let x₄   := down ⊞ x₂ In
-    --   -- logits
-    --   map {sl} (linear ⟨ θ .wc ⟩ 𝟘) x₄
-
-    -- bgpt-forward : ∀ {Γ} (sc : ℕ)
-    --                → GPTW Γ sl ed ah hd fd vo
-    --                → E Γ (ar (bs ⊗ (sl ⊗ ed)))
-    --                → E Γ (ar (bs ⊗ (sl ⊗ vo)))
-    -- bgpt-forward {sl} {ed} {ah} {hd} {fd} {vo} {bs} sc θ ws =
-    --   map {bs} (λ x → mgpt-forward sc ⟨ θ ⟩ʷ x) ws
-
-    -- mgpt-forward-e : E _ _
-    -- mgpt-forward-e = Lcon (
-    --                 ar (SL ⊗ ED) --wp
-    --               ∷ ar (ED ⊗ ED) --wkey
-    --               ∷ ar (ED ⊗ ED) --wqry
-    --               ∷ ar (ED ⊗ ED) --wval
-    --               ∷ ar (ED ⊗ ED) --wo
-    --               ∷ ar (SL ⊗ SL) --mask
-    --               ∷ ar (FD ⊗ ED) --wu
-    --               ∷ ar (ED ⊗ FD) --wd
-    --               ∷ ar (VO ⊗ ED) --wc
-    --               ∷ ar (SL ⊗ ED) --ws
-    --               ∷ []) (ar $ SL ⊗ VO) ε
-    --               λ wp wkey wqry wval wo mask wu wd wc ws
-    --               → let θ = gptw wp PR wkey wqry wval wo mask wu wd wc in
-    --                 mgpt-forward {sl = SL} {vo = VO} SC θ ws
-
-    -- gpt-forward : ∀ {Γ} → ℕ → GPTW Γ sl ed ah hd fd vo
-    --               → E Γ $ ar $ (bs ⊗ sl) ⊗ ed
-    --               → E Γ $ ar $ (bs ⊗ sl) ⊗ vo
-    -- gpt-forward {sl} {ed} {ah} {hd} {fd} {vo} {bs} sc θ ws =
-    --   Let wj := ws ⊞ assᵣ {bs} (K {bs} $ θ .wp) In
-    --   Let x₀ := map {bs ⊗ sl} rmsnorm wj In --residual
-    --   -- block
-    --   Let x₁ := map {bs ⊗ sl} rmsnorm x₀ In
-    --   ---- attn
-    --   ------ calculate key/query/val and swap dimensions
-    --   Let k := trᵢ {bs} {sl} {ah} $
-    --     map {bs ⊗ sl} {q = ah ⊗ hd} (linear ⟨ θ .wkey ⟩ 𝟘) x₁ In
-    --   Let q := trᵢ {bs} {sl} {ah} $
-    --     map {bs ⊗ sl} {q = ah ⊗ hd} (linear ⟨ θ .wqry ⟩ 𝟘) x₁ In
-    --   Let v := trᵢ {bs} {sl} {ah} $
-    --     map {bs ⊗ sl} {q = ah ⊗ hd} (linear ⟨ θ .wval ⟩ 𝟘) x₁ In
-    --   ------ calculate scores
-    --   Let scores := zipwith {bs ⊗ ah}
-    --     (λ a b → (scaledown sc $ matmult {sl} a b) ⊠ ⟨ θ .mask ⟩) q k In
-    --   ------ apply softmax to each row
-    --   Let sf  := map {bs ⊗ ah} ℙ scores In
-    --   ------ multiply by val, swap dimensions, and cat
-    --   Let att := map (cat $ θ .att-eq) $ trᵢ {bs} {ah} {sl} $
-    --               zipwith {bs ⊗ ah} (matmul {sl}) sf v In
-    --   Let out := map {bs ⊗ sl} {q = ed} (linear ⟨ θ .wo ⟩ 𝟘) att In
-    --   Let x₂  := x₀ ⊞ out In --residual
-    --   ---- feed forward
-    --   Let x₃ := map {bs ⊗ sl} rmsnorm x₂ In
-    --   Let up := map {bs ⊗ sl} {q = fd} (linear ⟨ θ .wu ⟩ 𝟘) x₃ In
-    --   Let rl := relu up In
-    --   Let down := map {bs ⊗ sl} {q = ed} (linear ⟨ θ .wd ⟩ 𝟘) rl In
-    --   Let x₄ := x₂ ⊞ down In
-    --   -- logits
-    --   map {bs ⊗ sl} {q = vo} (linear ⟨ θ .wc ⟩ 𝟘) x₄
-
-    -- gpt-loss : ∀ {Γ} → ℕ → GPTW Γ sl ed ah hd fd vo
-    --               → E Γ $ ar $ (bs ⊗ sl) ⊗ ed
-    --               → E Γ $ ar $ (bs ⊗ sl) ⊗ vo
-    --               → E Γ $ ar []
-    -- gpt-loss {sl} {ed} {ah} {hd} {fd} {vo} {bs} sc θ ws target =
-    --   Let wj := ws ⊞ assᵣ {bs} (K {bs} $ θ .wp) In
-    --   Let x₀ := map {bs ⊗ sl} rmsnorm wj In --residual
-    --   -- block
-    --   Let x₁ := map {bs ⊗ sl} rmsnorm x₀ In
-    --   ---- attn
-    --   ------ calculate key/query/val and swap dimensions
-    --   Let k := trᵢ {bs} {sl} {ah} $
-    --     map {bs ⊗ sl} {q = ah ⊗ hd} (linear ⟨ θ .wkey ⟩ 𝟘) x₁ In
-    --   Let q := trᵢ {bs} {sl} {ah} $
-    --     map {bs ⊗ sl} {q = ah ⊗ hd} (linear ⟨ θ .wqry ⟩ 𝟘) x₁ In
-    --   Let v := trᵢ {bs} {sl} {ah} $
-    --     map {bs ⊗ sl} {q = ah ⊗ hd} (linear ⟨ θ .wval ⟩ 𝟘) x₁ In
-    --   ------ calculate scores
-    --   Let scores := zipwith {bs ⊗ ah}
-    --     (λ a b → (scaledown sc $ matmult {sl} a b) ⊠ ⟨ θ .mask ⟩) q k In
-    --   ------ apply softmax to each row
-    --   Let sf  := map {bs ⊗ ah} ℙ scores In
-    --   ------ multiply by val, swap dimensions, and cat
-    --   Let att := map (cat $ θ .att-eq) $ trᵢ {bs} {ah} {sl} $
-    --               zipwith {bs ⊗ ah} (matmul {sl}) sf v In
-    --   Let out := map {bs ⊗ sl} {q = ed} (linear ⟨ θ .wo ⟩ 𝟘) att In
-    --   Let x₂  := x₀ ⊞ out In --residual
-    --   ---- feed forward
-    --   Let x₃ := map {bs ⊗ sl} rmsnorm x₂ In
-    --   Let up := map {bs ⊗ sl} {q = fd} (linear ⟨ θ .wu ⟩ 𝟘) x₃ In
-    --   Let rl := relu up In
-    --   Let down := map {bs ⊗ sl} {q = ed} (linear ⟨ θ .wd ⟩ 𝟘) rl In
-    --   Let x₄ := x₂ ⊞ down In
-    --   -- logits
-    --   Let logits := map {bs ⊗ sl} {q = vo} (linear ⟨ θ .wc ⟩ 𝟘) x₄ In
-    --   -- loss
-    --   avg (zipwith {bs ⊗ sl} (λ a b → cross-entropy a b) ⟨ target ⟩ logits)
-
-    -- gpt-forward-e : E _ _
-    -- gpt-forward-e = Lcon (
-    --                 ar (SL ⊗ ED) --wp
-    --               ∷ ar ((AH ⊗ HD) ⊗ ED) --wkey
-    --               ∷ ar ((AH ⊗ HD) ⊗ ED) --wqry
-    --               ∷ ar ((AH ⊗ HD) ⊗ ED) --wval
-    --               ∷ ar (ED ⊗ ED) --wo
-    --               ∷ ar (SL ⊗ SL) --mask
-    --               ∷ ar (FD ⊗ ED) --wu
-    --               ∷ ar (ED ⊗ FD) --wd
-    --               ∷ ar (VO ⊗ ED) --wc
-    --               ∷ ar ((BS ⊗ SL) ⊗ ED) --ws
-    --               ∷ []) (ar $ (BS ⊗ SL) ⊗ VO) ε
-    --               λ wp wkey wqry wval wo mask wu wd wc ws
-    --               → let θ = gptw wp PR wkey wqry wval wo mask wu wd wc in
-    --                 gpt-forward {sl = SL} {vo = VO} {bs = BS} SC θ ws
-
-    -- gpt-loss-e : E _ _
-    -- gpt-loss-e = Lcon (
-    --                 ar (SL ⊗ ED) --wp
-    --               ∷ ar ((AH ⊗ HD) ⊗ ED) --wkey
-    --               ∷ ar ((AH ⊗ HD) ⊗ ED) --wqry
-    --               ∷ ar ((AH ⊗ HD) ⊗ ED) --wval
-    --               ∷ ar (ED ⊗ ED) --wo
-    --               ∷ ar (SL ⊗ SL) --mask
-    --               ∷ ar (FD ⊗ ED) --wu
-    --               ∷ ar (ED ⊗ FD) --wd
-    --               ∷ ar (VO ⊗ ED) --wc
-    --               ∷ ar ((BS ⊗ SL) ⊗ ED) --ws
-    --               ∷ ar ((BS ⊗ SL) ⊗ VO) --target
-    --               ∷ []) (ar []) ε
-    --               λ wp wkey wqry wval wo mask wu wd wc ws target
-    --               → let θ = gptw wp PR wkey wqry wval wo mask wu wd wc in
-    --                 gpt-loss {sl = SL} {vo = VO} {bs = BS} SC θ ws target
