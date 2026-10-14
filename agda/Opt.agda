@@ -320,7 +320,7 @@ module Opt (r : Real) (rp : RealProp r) where
     --   ... | just (a′ , aeq) = (Sum {[ s ]} λ i → Sum {ss} λ j → sels (sel (⟨ a′ ⟩) i) j) , {!   !}
     --   ... | nothing = La.sum og
           -- , λ ρ j → sum-inv _+_ (fromℕ 0) {(λ i₁ → eval e (ρ , i₁))} j
-          --   ∙ sum-cong _+_ (fromℕ 0) {λ j₁ → eval e (ρ , j₁) j} (λ i → ap (ρ , i) j)
+          --   AH ⊗ (SL ⊗ HD)∙ sum-cong _+_ (fromℕ 0) {λ j₁ → eval e (ρ , j₁) j} (λ i → ap (ρ , i) j)
           --   ∙ (sym (sum-inv _+_ (fromℕ 0) {λ i → eval og (ρ , i)} j))
     -- default
     ... | sumₒ | a , ap = La.sum a

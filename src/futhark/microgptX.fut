@@ -59,6 +59,14 @@ def unzip7 [n] 'a 'b 'c 'd 'e 'f 'g : (a: [n](a, b, c, d, e, f, g)) -> ([n]a, [n
     , imap n (\i -> a[i].6)
     )
 
+let bs : i64 = 1
+let sl : i64 = 16
+let ed : i64 = 16
+let ah : i64 = 4
+let hd : i64 = 4
+let fd : i64 = 64
+let vo : i64 = 27
+
 --==== MGPT Module ====--
 module nn (F: real) = {
   type real = F.t
@@ -128,7 +136,8 @@ module nn (F: real) = {
 
   --==== This is the generated function. ====--
 
-  def forward_seq : (mask: [16][16]real)
+  def forward_seq :
+       (mask: [16][16]real)
     -> (wp: [16][16]real)
     -> (wqry: [16][16]real)
     -> (wkey: [16][16]real)
@@ -241,64 +250,87 @@ in ((isum2 1 16 (\i23 i24 -> x22[i23][i24])) F./ fromi64 16)))))))))))))))))))))
 
 }
 
-
 module nn64 = nn f64
 
 type params = {
-  wte:   [27][16]f64, -- token embeddings
-  wpe:   [16][16]f64, -- position embeddings
-  wqry:  [16][16]f64, -- query weights
-  wkey:  [16][16]f64, -- key weights
-  wval:  [16][16]f64, -- value weights
-  wout:  [16][16]f64, -- output weights
-  wup:   [64][16]f64, -- MLP up-projection
-  wdown: [16][64]f64, -- MLP down-projection
-  wvoc:  [27][16]f64  -- output projection
+  wte:   [vo][ed]f64, -- token embeddings
+  wpe:   [sl][ed]f64, -- position embeddings
+  wqry:  [ed][ed]f64, -- query weights
+  wkey:  [ed][ed]f64, -- key weights
+  wval:  [ed][ed]f64, -- value weights
+  wout:  [ed][ed]f64, -- output weights
+  wup:   [fd][ed]f64, -- MLP up-projection
+  wdown: [ed][fd]f64, -- MLP down-projection
+  wvoc:  [vo][ed]f64  -- output projection
 }
 
-entry to_params (wte: [27][16]f64)  (wpe: [16][16]f64)
-    (wqry: [16][16]f64) (wkey: [16][16]f64) (wval: [16][16]f64)
-    (wout: [16][16]f64) (wup: [64][16]f64) (wdown: [16][64]f64)
-    (wvoc: [27][16]f64) : params =
+entry to_params (wte: [vo][ed]f64)  (wpe: [sl][ed]f64)
+    (wqry: [ed][ed]f64) (wkey: [ed][ed]f64) (wval: [ed][ed]f64)
+    (wout: [ed][ed]f64) (wup: [fd][ed]f64) (wdown: [ed][fd]f64)
+    (wvoc: [vo][ed]f64) : params =
     {wte, wpe, wqry, wkey, wval, wout, wup, wdown, wvoc}
 
 def from_params (p : params) :
   (
-  [27][16]f64, -- dwte
-  [16][16]f64, -- dwpe
-  [16][16]f64, -- dwqry
-  [16][16]f64, -- dwkey
-  [16][16]f64, -- dwval
-  [16][16]f64, -- dwout
-  [64][16]f64, -- dwup
-  [16][64]f64, -- dwdown
-  [27][16]f64, -- dwvoc
+  [vo][ed]f64, -- token embeddings
+  [sl][ed]f64, -- position embeddings
+  [ed][ed]f64, -- query weights
+  [ed][ed]f64, -- key weights
+  [ed][ed]f64, -- value weights
+  [ed][ed]f64, -- output weights
+  [fd][ed]f64, -- MLP up-projection
+  [ed][fd]f64, -- MLP down-projection
+  [vo][ed]f64  -- output projection
   ) =
   let {wte, wpe, wqry, wkey, wval, wout, wup, wdown, wvoc} = p
   in (wte, wpe, wqry, wkey, wval, wout, wup, wdown, wvoc)
 
-entry forward_seq (p : params) (tokens : [1][16]i64) (mask : [16][16]f64) : [1][16][27]f64 =
+entry forward (p : params) (tokens : [bs][sl]i64) (mask : [sl][sl]f64) : [bs][sl][vo]f64 =
    let {wte, wpe, wqry, wkey, wval, wout, wup, wdown, wvoc} = p
-   let ws = (imap3 1 16 16 (\i j k -> wte[tokens[i][j]][k]))
-   in nn64.forward_seq mask wpe wqry wkey wval wout wup wdown wvoc ws
+   let ws = (imap3 bs sl ed (\i j k -> wte[tokens[i][j]][k]))
+   in (nn64.forward_seq
+        (mask  :> [16][16]f64)
+        (wpe   :> [16][16]f64)
+        (wqry  :> [16][16]f64)
+        (wkey  :> [16][16]f64)
+        (wval  :> [16][16]f64)
+        (wout  :> [16][16]f64)
+        (wup   :> [64][16]f64)
+        (wdown :> [16][64]f64)
+        (wvoc  :> [27][16]f64)
+        (ws    :> [1][16][16]f64)
+               :> [bs][sl][vo]f64)
 
-def cal_target (n : i64) (tokens : [1][16]i64) : [1][16][27]f64 =
-  imap3 1 16 27 (\i j k -> (if ((j < (n - 1)) && (tokens[i][j + 1] == k)) then 1 else 0))
+def cal_target (n : i64) (tokens : [bs][sl]i64) : [bs][sl][vo]f64 =
+  imap3 bs sl vo (\i j k -> (if ((j < (n - 1)) && (tokens[i][j + 1] == k)) then 1 else 0))
 
-entry cal_loss (dl : i64) (p : params) (tokens : [1][16]i64) (mask : [16][16]f64) : f64 =
+entry loss (dl : i64) (p : params) (tokens : [bs][sl]i64) (mask : [sl][sl]f64) : f64 =
    let {wte, wpe, wqry, wkey, wval, wout, wup, wdown, wvoc} = p
    let target = cal_target dl tokens
    let ws = (imap3 1 16 16 (\i j k -> wte[tokens[i][j]][k]))
-   in nn64.cal_loss mask wpe wqry wkey wval wout wup wdown wvoc ws target
+   in (nn64.cal_loss
+        (mask  :> [16][16]f64)
+        (wpe   :> [16][16]f64)
+        (wqry  :> [16][16]f64)
+        (wkey  :> [16][16]f64)
+        (wval  :> [16][16]f64)
+        (wout  :> [16][16]f64)
+        (wup   :> [64][16]f64)
+        (wdown :> [16][64]f64)
+        (wvoc  :> [27][16]f64)
+        (ws    :> [1][16][16]f64)
+        (target :> [1][16][27]f64)
+               :> f64)
+  --  in nn64.cal_loss mask wpe wqry wkey wval wout wup wdown wvoc ws target
 
 entry zero_params : params =
-  let wte = imap2 27 16 (\_ _ -> 0)
-  let wpe = imap2 16 16 (\_ _ -> 0)
-  let wqry = imap2 16 16 (\_ _ -> 0)
-  let wkey = imap2 16 16 (\_ _ -> 0)
-  let wval = imap2 16 16 (\_ _ -> 0)
-  let wout = imap2 16 16 (\_ _ -> 0)
-  let wup = imap2 64 16 (\_ _ -> 0)
-  let wdown = imap2 16 64 (\_ _ -> 0)
-  let wvoc = imap2 27 16 (\_ _ -> 0)
+  let wte = imap2 vo ed (\_ _ -> 0)
+  let wpe = imap2 sl ed (\_ _ -> 0)
+  let wqry = imap2 ed ed (\_ _ -> 0)
+  let wkey = imap2 ed ed (\_ _ -> 0)
+  let wval = imap2 ed ed (\_ _ -> 0)
+  let wout = imap2 ed ed (\_ _ -> 0)
+  let wup = imap2 fd ed (\_ _ -> 0)
+  let wdown = imap2 ed fd (\_ _ -> 0)
+  let wvoc = imap2 vo ed (\_ _ -> 0)
   in {wte, wpe, wqry, wkey, wval, wout, wup, wdown, wvoc}

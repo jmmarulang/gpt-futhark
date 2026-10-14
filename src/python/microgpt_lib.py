@@ -1,9 +1,13 @@
-import numpy as np
-import os       # os.path.exists
-import math     # math.log, math.exp
-# import numpy as np
+"""
+The most atomic way to train and run inference for a GPT in pure, dependency-free Python.
+This file is the complete algorithm.
+Everything else is just efficiency.
 
-# Let there be Autograd to recursively apply the chain rule through a computation graph
+@karpathy
+"""
+
+import math     # math.log, math.exp
+
 # Let there be Autograd to recursively apply the chain rule through a computation graph
 class Value:
     __slots__ = ('data', 'grad', '_children', '_local_grads') # Python optimization for memory usage
@@ -58,7 +62,7 @@ def to_val(x) : return Value(x)
 def reset_grad(x) : x.grad = 0
 
 def linear(x, w):
-    return [sum(wi * xi for wi, xi in zip(wo, x)) for wo in w]
+        return [sum(wi * xi for wi, xi in zip(wo, x)) for wo in w]
 
 def softmax(logits):
     max_val = max(val.data for val in logits)
@@ -71,13 +75,23 @@ def rmsnorm(x):
     scale = (ms + 1e-5) ** -0.5
     return [xi * scale for xi in x]
 
-def forward_tok(state_dict, token_id, pos_id, keys, values, n_head = 4, head_dim = 4, n_layer= 1):
-    tok_emb = state_dict['wte'][token_id] # token embedding
-    pos_emb = state_dict['wpe'][pos_id] # position embedding
+vocab_size = 27
+n_layer = 1
+n_embd = 16     # width of the network (embedding dimension)
+block_size = 16 # maximum context length of the attention window (note: the longest name is 15 characters)
+n_head = 4      # number of attention heads
+head_dim = n_embd // n_head # derived dimension of each head
+# Let there be Adam, the blessed optimizer and its buffers
+learning_rate, beta1, beta2, eps_adam = 0.01, 0.85, 0.99, 1e-8
+
+def forward(token_id, pos_id, state_dict, keys, values):
+    tok_emb = state_dict['wt'][token_id] # token embedding
+    pos_emb = state_dict['wp'][pos_id] # position embedding
     x = [t + p for t, p in zip(tok_emb, pos_emb)] # joint token and position embedding
     x = rmsnorm(x) # note: not redundant due to backward pass via the residual connection
 
     for li in range(n_layer):
+        assert n_layer == 1
         # 1) Multi-head Attention block
         x_residual = x
         x = rmsnorm(x)
@@ -96,54 +110,87 @@ def forward_tok(state_dict, token_id, pos_id, keys, values, n_head = 4, head_dim
             attn_weights = softmax(attn_logits)
             head_out = [sum(attn_weights[t] * v_h[t][j] for t in range(len(v_h))) for j in range(head_dim)]
             x_attn.extend(head_out)
-        x = linear(x_attn, state_dict['wout'])
+        x = linear(x_attn, state_dict['wo'])
         x = [a + b for a, b in zip(x, x_residual)]
         # 2) MLP block
         x_residual = x
         x = rmsnorm(x)
-        x = linear(x, state_dict['wup'])
+        x = linear(x, state_dict['wu'])
         x = [xi.relu() for xi in x]
-        x = linear(x, state_dict['wdown'])
+        x = linear(x, state_dict['wd'])
         x = [a + b for a, b in zip(x, x_residual)]
 
-    logits = linear(x, state_dict['wvoc'])
+    logits = linear(x, state_dict['wc'])
     return logits
 
-def forward_seq(wdic, seq_ids, sl = 16, ah = 4, hd = 4):
-    n = min(sl, len(seq_ids))
+def forward_seq(seq_ids, pwdic):
+    n = min(block_size, len(seq_ids))
     keys, vals = [[]], [[]]
-    mlogits = []
+    seq_logits = []
 
     for pos_id in range(n):
         tok_id = seq_ids[pos_id]
-        logits = forward_tok(wdic, tok_id, pos_id, keys, vals, ah, hd)
-        mlogits.append(logits)
+        logits = forward(tok_id, pos_id, pwdic, keys, vals)
+        seq_logits.append(logits)
 
-    return mlogits
+    return seq_logits
 
-def cal_loss(state_dict, tokens, block_size = 16, n_head = 4, head_dim = 4, n_layer = 1):
-    n = min(block_size, len(tokens) - 1)
+def forward_seq(seq_ids, pwdic):
+    n = min(block_size, len(seq_ids) -1)
+    keys, vals = [[]], [[]]
+    seq_logits = []
+    seq_losses = []
 
-    # Forward the token sequence through the model, building up the computation graph all the way to the loss
-    keys, values = [[] for _ in range(n_layer)], [[] for _ in range(n_layer)]
-    losses = []
     for pos_id in range(n):
-        token_id, target_id = tokens[pos_id], tokens[pos_id + 1]
-        logits = forward_tok(state_dict, token_id, pos_id, keys, values, n_head, head_dim, n_layer)
+        tok_id, target_id = seq_ids[pos_id], seq_ids[pos_id + 1]
+        logits = forward(tok_id, pos_id, pwdic, keys, vals)
+        seq_logits.append(logits)
         probs = softmax(logits)
         loss_t = -probs[target_id].log()
-        losses.append(loss_t)
-    loss = (1 / block_size) * sum(losses)
-    # loss = sum(losses)
+        seq_losses.append(loss_t)
+    loss = (1 / block_size) * sum(seq_losses) # final average loss over the document sequence. May yours be low.
 
-    return loss, losses
+    return seq_logits, loss
 
-def update(wdic, dwdic, mdic, vdic, step, num_steps, learning_rate = 0.01, beta1 = 0.85, beta2 = 0.99, eps_adam = 1e-8):
-    lr_t = learning_rate * (1 - step / num_steps) # linear learning rate decay
-    for k , dp in dwdic.items():
-        mdic[k] = beta1 * mdic[k] + (1 - beta1) * dp
-        vdic[k] = beta2 * vdic[k] + (1 - beta2) * dp ** 2
-        m_hat = mdic[k] / (1 - beta1 ** (step + 1))
-        v_hat = vdic[k] / (1 - beta2 ** (step + 1))
-        wdic[k] -= lr_t * m_hat / (v_hat ** 0.5 + eps_adam)
-    return lr_t
+def train(docs, uchars, BOS, num_steps, state_dict):
+    params = [p for mat in state_dict.values() for row in mat for p in row] # flatten params into a single list[Value]
+    m = [0.0] * len(params) # first moment buffer
+    v = [0.0] * len(params) # second moment buffer
+    seq_losses = []
+    # Repeat in sequence
+    for step in range(num_steps):
+
+        # Take single document, tokenize it, surround it with BOS special token on both sides
+        doc = docs[step % len(docs)]
+        tokens = [BOS] + [uchars.index(ch) for ch in doc] + [BOS]
+        n = min(block_size, len(tokens) - 1)
+
+        # Forward the token sequence through the model, building up the computation graph all the way to the loss
+        keys, values = [[] for _ in range(n_layer)], [[] for _ in range(n_layer)]
+        losses = []
+        for pos_id in range(n):
+            token_id, target_id = tokens[pos_id], tokens[pos_id + 1]
+            logits = forward(token_id, pos_id, state_dict, keys, values)
+            probs = softmax(logits)
+            loss_t = -probs[target_id].log()
+            losses.append(loss_t)
+        loss = (1 / block_size) * sum(losses) # final average loss over the document sequence. May yours be low.
+
+        # Backward the loss, calculating the gradients with respect to all model parameters
+        loss.backward()
+
+        # Adam optimizer update: update the model parameters based on the corresponding gradients
+        lr_t = learning_rate * (1 - step / num_steps) # linear learning rate decay
+        for i, p in enumerate(params):
+            m[i] = beta1 * m[i] + (1 - beta1) * p.grad
+            v[i] = beta2 * v[i] + (1 - beta2) * p.grad ** 2
+            m_hat = m[i] / (1 - beta1 ** (step + 1))
+            v_hat = v[i] / (1 - beta2 ** (step + 1))
+            p.data -= lr_t * m_hat / (v_hat ** 0.5 + eps_adam)
+            p.grad = 0
+
+        print(f"step {step+1:4d} / {num_steps:4d} | loss {loss.data:.4f}", end='\r')
+
+        seq_losses.append(loss.data)
+
+    return seq_losses

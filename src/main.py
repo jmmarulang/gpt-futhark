@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import python.microgpt_libX as mp
+import python.microgpt_lib as mp
 import time
 import random
 import futhark_server

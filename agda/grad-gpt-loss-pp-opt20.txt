@@ -1,110 +1,128 @@
-let' x0 = imap λ x1 → let x2 = ((wp + sel (1 16 16) (1) ws x1) * (wp + sel (1 16 16) (1) ws x1)) in
-let x3 = (sqrt (imap λ x4 → scaledown 16 (sum λ x5 → sels (sel (16 16) (16) x2 x4) x5) + sel (16) (16) (scaledown 100000 1) x4)) in
-(imap λ x6 → (sel (16 16) (16) (wp + sel (1 16 16) (1) ws x1) x6 * (inv (imaps (16) λ x7 → sel (16) (16) x3 x6))))
+let' x0 = imap λ x1 → imap λ x2 → let x3 = scaledown 16 (sum λ x4 → (sels (sel (16 16) (16) (wp + sel (1 16 16) (1) ws x1) x2) x4 * sels (sel (16 16) (16) (wp + sel (1 16 16) (1) ws x1) x2) x4)) in
+let x5 = (sqrt (x3 + scaledown 100000 1)) in
+(imaps (16) λ x6 → (sels (sel (16 16) (16) (wp + sel (1 16 16) (1) ws x1) x2) x6 * (inv x5)))
 
-let' x8 = imap λ x9 → let x10 = (sel (1 16 16) (1) x0 x9 * sel (1 16 16) (1) x0 x9) in
-let x11 = (sqrt (imap λ x12 → scaledown 16 (sum λ x13 → sels (sel (16 16) (16) x10 x12) x13) + sel (16) (16) (scaledown 100000 1) x12)) in
-(imap λ x14 → (sel (16 16) (16) (sel (1 16 16) (1) x0 x9) x14 * (inv (imaps (16) λ x15 → sel (16) (16) x11 x14))))
+let' x7 = imap λ x8 → imap λ x9 → let x10 = scaledown 16 (sum λ x11 → (sels (sel (16 16) (16) (sel (1 16 16) (1) x0 x8) x9) x11 * sels (sel (16 16) (16) (sel (1 16 16) (1) x0 x8) x9) x11)) in
+let x12 = (sqrt (x10 + scaledown 100000 1)) in
+(imaps (16) λ x13 → (sels (sel (16 16) (16) (sel (1 16 16) (1) x0 x8) x9) x13 * (inv x12)))
 
-let' x16 = imap λ x17 → imap λ x18 → imaps (4 4) λ x19 → sum λ x20 → (sels (sel (4 4 16) (4 4) wqry x19) x20 * sels (sel (16 16) (16) (sel (1 16 16) (1) x8 x17) x18) x20)
+let' x14 = imap λ x15 → imap λ x16 → imaps (4 4) λ x17 → sum λ x18 → (sels (sel (4 4 16) (4 4) wqry x17) x18 * sels (sel (16 16) (16) (sel (1 16 16) (1) x7 x15) x16) x18)
 
-let' x21 = imap λ x22 → imap λ x23 → imaps (4 4) λ x24 → sum λ x25 → (sels (sel (4 4 16) (4 4) wkey x24) x25 * sels (sel (16 16) (16) (sel (1 16 16) (1) x8 x22) x23) x25)
+let' x19 = imap λ x20 → imap λ x21 → imaps (4 4) λ x22 → sum λ x23 → (sels (sel (4 4 16) (4 4) wkey x22) x23 * sels (sel (16 16) (16) (sel (1 16 16) (1) x7 x20) x21) x23)
 
-let' x26 = imap λ x27 → imap λ x28 → imaps (4 4) λ x29 → sum λ x30 → (sels (sel (4 4 16) (4 4) wval x29) x30 * sels (sel (16 16) (16) (sel (1 16 16) (1) x8 x27) x28) x30)
+let' x24 = imap λ x25 → imap λ x26 → imaps (4 4) λ x27 → sum λ x28 → (sels (sel (4 4 16) (4 4) wval x27) x28 * sels (sel (16 16) (16) (sel (1 16 16) (1) x7 x25) x26) x28)
 
-let' x31 = imap λ x32 → imap λ x33 → let x34 = (imap λ x35 → (softmax (scaledown 2 (imaps (16) λ x36 → sum λ x37 → (sels (sel (4 4) (4) (sel (16 4 4) (16) (sel (1 16 4 4) (1) x16 x32) x35) x33) x37 * sels (sel (4 4) (4) (sel (16 4 4) (16) (sel (1 16 4 4) (1) x21 x32) x36) x33) x37)))) + sel (16 16) (16) mask x35) in
-(imap λ x38 → imaps (4) λ x39 → sum λ x40 → (sels (sel (16 16) (16) x34 x38) x40 * sels (sel (4 4) (4) (sel (16 4 4) (16) (sel (1 16 4 4) (1) x26 x32) x40) x33) x39))
+let' x29 = imap λ x30 → imap λ x31 → let x32 = (imap λ x33 → (softmax (scaledown 2 (imaps (16) λ x34 → sum λ x35 → (sels (sel (4 4) (4) (sel (16 4 4) (16) (sel (1 16 4 4) (1) x14 x30) x33) x31) x35 * sels (sel (4 4) (4) (sel (16 4 4) (16) (sel (1 16 4 4) (1) x19 x30) x34) x31) x35)) + sel (16 16) (16) mask x33))) in
+(imap λ x36 → imaps (4) λ x37 → sum λ x38 → (sels (sel (16 16) (16) x32 x36) x38 * sels (sel (4 4) (4) (sel (16 4 4) (16) (sel (1 16 4 4) (1) x24 x30) x38) x31) x37))
 
-let' x41 = imap λ x42 → imap λ x43 → imaps (16) λ x44 → sels (sel (16 16) (16) (sel (1 16 16) (1) x0 x42) x43) x44 + (sum λ x45 → sum λ x46 → (sels (sel (4 4) (4) (sel (16 4 4) (16) wo x44) x45) x46 * sels (sel (16 4) (16) (sel (4 16 4) (4) (sel (1 4 16 4) (1) x31 x42) x45) x43) x46))
+let' x39 = imap λ x40 → imap λ x41 → imapb λ x42 → sel (16 4) (16) (sel (4 16 4) (4) (sel (1 4 16 4) (1) x29 x40) x42) x41
 
-let' x47 = imap λ x48 → let x49 = (sel (1 16 16) (1) x41 x48 * sel (1 16 16) (1) x41 x48) in
-let x50 = (sqrt (imap λ x51 → scaledown 16 (sum λ x52 → sels (sel (16 16) (16) x49 x51) x52) + sel (16) (16) (scaledown 100000 1) x51)) in
-(imap λ x53 → (sel (16 16) (16) (sel (1 16 16) (1) x41 x48) x53 * (inv (imaps (16) λ x54 → sel (16) (16) x50 x53))))
+let' x43 = imap λ x44 → imap λ x45 → imaps (16) λ x46 → sels (sel (16 16) (16) (sel (1 16 16) (1) x0 x44) x45) x46 + (sum λ x47 → (sels (sel (16 16) (16) wo x46) x47 * sels (sel (16 16) (16) (sel (1 16 16) (1) x39 x44) x45) x47))
 
-let' x55 = (relu (imap λ x56 → imap λ x57 → imaps (64) λ x58 → sum λ x59 → (sels (sel (64 16) (64) wu x58) x59 * sels (sel (16 16) (16) (sel (1 16 16) (1) x47 x56) x57) x59)))
+let' x48 = imap λ x49 → imap λ x50 → let x51 = scaledown 16 (sum λ x52 → (sels (sel (16 16) (16) (sel (1 16 16) (1) x43 x49) x50) x52 * sels (sel (16 16) (16) (sel (1 16 16) (1) x43 x49) x50) x52)) in
+let x53 = (sqrt (x51 + scaledown 100000 1)) in
+(imaps (16) λ x54 → (sels (sel (16 16) (16) (sel (1 16 16) (1) x43 x49) x50) x54 * (inv x53)))
 
-let' x60 = imap λ x61 → imap λ x62 → (softmax (imaps (27) λ x63 → sum λ x64 → (sels (sel (27 16) (27) wc x63) x64 * (sels (sel (16 16) (16) (sel (1 16 16) (1) x41 x61) x62) x64 + (sum λ x65 → (sels (sel (16 64) (16) wd x64) x65 * sels (sel (16 64) (16) (sel (1 16 64) (1) x55 x61) x62) x65))))))
+let' x55 = (relu (imap λ x56 → imap λ x57 → imaps (64) λ x58 → sum λ x59 → (sels (sel (64 16) (64) wu x58) x59 * sels (sel (16 16) (16) (sel (1 16 16) (1) x48 x56) x57) x59)))
 
-let' x66 = imaps (1 16) λ x67 → scaledown 16 1
+let' x60 = imap λ x61 → imap λ x62 → imaps (27) λ x63 → sum λ x64 → (sels (sel (27 16) (27) wc x63) x64 * (sels (sel (16 16) (16) (sel (1 16 16) (1) x43 x61) x62) x64 + (sum λ x65 → (sels (sel (16 64) (16) wd x64) x65 * sels (sel (16 64) (16) (sel (1 16 64) (1) x55 x61) x62) x65))))
 
-let' x68 = imap λ x69 → imap λ x70 → imaps (27) λ x71 → (- (((sel (16) (16) (sel (1 16) (1) x66 x69) x70 * sels (sel (16 27) (16) (sel (1 16 27) (1) target x69) x70) x71) * (inv (sels (sel (16 27) (16) (sel (1 16 27) (1) x60 x69) x70) x71)))))
+let' x66 = imap λ x67 → imap λ x68 → (softmax (sel (16 27) (16) (sel (1 16 27) (1) x60 x67) x68))
 
-let' x72 = imap λ x73 → imap λ x74 → sel (16 27) (16) (sel (1 16 27) (1) x68 x73) x74
+let' x69 = imaps (1 16) λ x70 → scaledown 16 1
 
-let' x75 = imap λ x76 → imap λ x77 → sum λ x78 → (sels (sel (16 27) (16) (sel (1 16 27) (1) x72 x76) x77) x78 * sels (sel (16 27) (16) (sel (1 16 27) (1) x60 x76) x77) x78)
+let' x71 = imap λ x72 → imap λ x73 → imaps (27) λ x74 → (- (((sel (16) (16) (sel (1 16) (1) x69 x72) x73 * sels (sel (16 27) (16) (sel (1 16 27) (1) target x72) x73) x74) * (inv (sels (sel (16 27) (16) (sel (1 16 27) (1) x66 x72) x73) x74)))))
 
-let' x79 = imap λ x80 → imap λ x81 → imaps (64) λ x82 → sum λ x83 → sum λ x84 → (sels (sel (16 64) (16) wd x84) x82 * (sels (sel (27 16) (27) wc x83) x84 * (sels (sel (16 27) (16) (sel (1 16 27) (1) x60 x80) x81) x83 * (sels (sel (16 27) (16) (sel (1 16 27) (1) x72 x80) x81) x83 + (- (sel (16) (16) (sel (1 16) (1) x75 x80) x81))))))
+let' x75 = imap λ x76 → imap λ x77 → sel (16 27) (16) (sel (1 16 27) (1) x71 x76) x77
 
-let' x85 = imap λ x86 → imap λ x87 → imaps (16) λ x88 → sum λ x89 → (sels (sel (64 16) (64) wu x89) x88 * sels (sel (16 64) (16) (sel (1 16 64) (1) (((ind-positive (imap λ x90 → imap λ x91 → imaps (64) λ x92 → sum λ x93 → (sels (sel (64 16) (64) wu x92) x93 * sels (sel (16 16) (16) (sel (1 16 16) (1) x47 x90) x91) x93))) * x79)) x86) x87) x89)
+let' x78 = imap λ x79 → imap λ x80 → sum λ x81 → (sels (sel (16 27) (16) (sel (1 16 27) (1) x75 x79) x80) x81 * sels (sel (16 27) (16) (sel (1 16 27) (1) x66 x79) x80) x81)
 
-let' x94 = imap λ x95 → (sel (1 16 16) (1) x41 x95 * sel (1 16 16) (1) x41 x95)
+let' x82 = imap λ x83 → imap λ x84 → (sel (16 27) (16) (sel (1 16 27) (1) x66 x83) x84 * (sel (16 27) (16) (sel (1 16 27) (1) x75 x83) x84 + (- (imaps (27) λ x85 → sel (16) (16) (sel (1 16) (1) x78 x83) x84))))
 
-let' x96 = imap λ x97 → (sqrt (imap λ x98 → scaledown 16 (sum λ x99 → sels (sel (16 16) (16) (sel (1 16 16) (1) x94 x97) x98) x99) + sel (16) (16) (scaledown 100000 1) x98))
+let' x86 = imap λ x87 → imap λ x88 → imaps (64) λ x89 → sum λ x90 → sum λ x91 → (sels (sel (16 64) (16) wd x91) x89 * (sels (sel (27 16) (27) wc x90) x91 * sels (sel (16 27) (16) (sel (1 16 27) (1) x82 x87) x88) x90))
 
-let' x100 = imap λ x101 → imap λ x102 → (- (((inv (sel (16) (16) (sel (1 16) (1) x96 x101) x102)) * ((sum λ x103 → (sels (sel (16 16) (16) (sel (1 16 16) (1) x41 x101) x102) x103 * sels (sel (16 16) (16) (sel (1 16 16) (1) x85 x101) x102) x103)) * (inv (sel (16) (16) (sel (1 16) (1) x96 x101) x102))))))
+let' x92 = imap λ x93 → imap λ x94 → imaps (16) λ x95 → sum λ x96 → (sels (sel (64 16) (64) wu x96) x95 * sels (sel (16 64) (16) (sel (1 16 64) (1) (((ind-positive (imap λ x97 → imap λ x98 → imaps (64) λ x99 → sum λ x100 → (sels (sel (64 16) (64) wu x99) x100 * sels (sel (16 16) (16) (sel (1 16 16) (1) x48 x97) x98) x100))) * x86)) x93) x94) x96)
 
-let' x104 = imap λ x105 → imap λ x106 → imaps (16) λ x107 → scaledown 16 (sel (16) (16) ((sel (1 16) (1) x100 x105 * (inv (((1 + 1) * (sqrt (imap λ x108 → scaledown 16 (sum λ x109 → sels (sel (16 16) (16) (sel (1 16 16) (1) x94 x105) x108) x109) + sel (16) (16) (scaledown 100000 1) x108))))))) x106)
+let' x101 = imap λ x102 → imap λ x103 → (sel (16 16) (16) (sel (1 16 16) (1) x43 x102) x103 * sel (16 16) (16) (sel (1 16 16) (1) x43 x102) x103)
 
-let' x110 = imap λ x111 → imap λ x112 → imaps (16) λ x113 → (sum λ x114 → (sels (sel (27 16) (27) wc x114) x113 * (sels (sel (16 27) (16) (sel (1 16 27) (1) x60 x111) x112) x114 * (sels (sel (16 27) (16) (sel (1 16 27) (1) x72 x111) x112) x114 + (- (sel (16) (16) (sel (1 16) (1) x75 x111) x112)))))) + (sels (sel (16 16) (16) (sel (1 16 16) (1) x85 x111) x112) x113 * (inv (sel (16) (16) (sel (1 16) (1) x96 x111) x112))) + sels (sel (16 16) (16) ((sel (1 16 16) (1) x41 x111 * sel (1 16 16) (1) x104 x111)) x112) x113 + sels (sel (16 16) (16) ((sel (1 16 16) (1) x104 x111 * sel (1 16 16) (1) x41 x111)) x112) x113
+let' x104 = imap λ x105 → imap λ x106 → scaledown 16 (sum λ x107 → sels (sel (16 16) (16) (sel (1 16 16) (1) x101 x105) x106) x107)
 
-let' x115 = imap λ x116 → imap λ x117 → imap λ x118 → imaps (4) λ x119 → sum λ x120 → (sels (sel (4 4) (4) (sel (16 4 4) (16) wo x120) x117) x119 * sels (sel (16 16) (16) (sel (1 16 16) (1) x110 x116) x118) x120)
+let' x108 = imap λ x109 → imap λ x110 → (sqrt (sel (16) (16) (sel (1 16) (1) x104 x109) x110 + scaledown 100000 1))
 
-let' x121 = imap λ x122 → imap λ x123 → imap λ x124 → (softmax (scaledown 2 (imaps (16) λ x125 → sum λ x126 → (sels (sel (4 4) (4) (sel (16 4 4) (16) (sel (1 16 4 4) (1) x16 x122) x124) x123) x126 * sels (sel (4 4) (4) (sel (16 4 4) (16) (sel (1 16 4 4) (1) x21 x122) x125) x123) x126)))) + sel (16 16) (16) mask x124
+let' x111 = imap λ x112 → imap λ x113 → (- (((inv (sel (16) (16) (sel (1 16) (1) x108 x112) x113)) * ((sum λ x114 → (sels (sel (16 16) (16) (sel (1 16 16) (1) x43 x112) x113) x114 * sels (sel (16 16) (16) (sel (1 16 16) (1) x92 x112) x113) x114)) * (inv (sel (16) (16) (sel (1 16) (1) x108 x112) x113))))))
 
-let' x127 = imap λ x128 → imap λ x129 → imap λ x130 → imaps (16) λ x131 → sum λ x132 → (sels (sel (16 4) (16) (sel (4 16 4) (4) (sel (1 4 16 4) (1) x115 x128) x129) x130) x132 * sels (sel (4 4) (4) (sel (16 4 4) (16) (sel (1 16 4 4) (1) x26 x128) x131) x129) x132)
+let' x115 = imap λ x116 → imap λ x117 → (sel (16) (16) (sel (1 16) (1) x111 x116) x117 * (inv (((1 + 1) * (sqrt (sel (16) (16) (sel (1 16) (1) x104 x116) x117 + scaledown 100000 1))))))
 
-let' x133 = imap λ x134 → imap λ x135 → imap λ x136 → (softmax (scaledown 2 (imaps (16) λ x137 → sum λ x138 → (sels (sel (4 4) (4) (sel (16 4 4) (16) (sel (1 16 4 4) (1) x16 x134) x136) x135) x138 * sels (sel (4 4) (4) (sel (16 4 4) (16) (sel (1 16 4 4) (1) x21 x134) x137) x135) x138))))
+let' x118 = imap λ x119 → imap λ x120 → imaps (16) λ x121 → scaledown 16 (sel (16) (16) (sel (1 16) (1) x115 x119) x120)
 
-let' x139 = imap λ x140 → imap λ x141 → imap λ x142 → sel (16 16) (16) (sel (4 16 16) (4) (sel (1 4 16 16) (1) x127 x140) x141) x142
+let' x122 = imap λ x123 → imap λ x124 → imaps (16) λ x125 → (sum λ x126 → (sels (sel (27 16) (27) wc x126) x125 * sels (sel (16 27) (16) (sel (1 16 27) (1) x82 x123) x124) x126)) + (sels (sel (16 16) (16) (sel (1 16 16) (1) x92 x123) x124) x125 * (inv (sel (16) (16) (sel (1 16) (1) x108 x123) x124))) + (sels (sel (16 16) (16) (sel (1 16 16) (1) x43 x123) x124) x125 * sels (sel (16 16) (16) (sel (1 16 16) (1) x118 x123) x124) x125) + (sels (sel (16 16) (16) (sel (1 16 16) (1) x118 x123) x124) x125 * sels (sel (16 16) (16) (sel (1 16 16) (1) x43 x123) x124) x125)
 
-let' x143 = imap λ x144 → imap λ x145 → imap λ x146 → sum λ x147 → (sels (sel (16 16) (16) (sel (4 16 16) (4) (sel (1 4 16 16) (1) x139 x144) x145) x146) x147 * sels (sel (16 16) (16) (sel (4 16 16) (4) (sel (1 4 16 16) (1) x133 x144) x145) x146) x147)
+let' x127 = imap λ x128 → imap λ x129 → imaps (16) λ x130 → sum λ x131 → (sels (sel (16 16) (16) wo x131) x130 * sels (sel (16 16) (16) (sel (1 16 16) (1) x122 x128) x129) x131)
 
-let' x148 = imap λ x149 → imap λ x150 → imap λ x151 → imaps (4) λ x152 → sum λ x153 → (sels (sel (16 16) (16) (sel (4 16 16) (4) (sel (1 4 16 16) (1) x121 x149) x151) x153) x150 * sels (sel (16 4) (16) (sel (4 16 4) (4) (sel (1 4 16 4) (1) x115 x149) x151) x153) x152)
+let' x132 = imap λ x133 → imap λ x134 → imap λ x135 → selb (sel (16 16) (16) (sel (1 16 16) (1) x127 x133) x135) x134
 
-let' x154 = imap λ x155 → imap λ x156 → imap λ x157 → imaps (4) λ x158 → sum λ x159 → (sels (sel (4 4) (4) (sel (16 4 4) (16) (sel (1 16 4 4) (1) x16 x155) x159) x157) x158 * sels (scaledown 2 ((sel (16 16) (16) (sel (4 16 16) (4) (sel (1 4 16 16) (1) x133 x155) x157) x159 * (sel (16 16) (16) (sel (4 16 16) (4) (sel (1 4 16 16) (1) x139 x155) x157) x159 + (- (imaps (16) λ x160 → sel (16) (16) (sel (4 16) (4) (sel (1 4 16) (1) x143 x155) x157) x159)))))) x156)
+let' x136 = imap λ x137 → imap λ x138 → imap λ x139 → (softmax (scaledown 2 (imaps (16) λ x140 → sum λ x141 → (sels (sel (4 4) (4) (sel (16 4 4) (16) (sel (1 16 4 4) (1) x14 x137) x139) x138) x141 * sels (sel (4 4) (4) (sel (16 4 4) (16) (sel (1 16 4 4) (1) x19 x137) x140) x138) x141)) + sel (16 16) (16) mask x139))
 
-let' x161 = imap λ x162 → imap λ x163 → imap λ x164 → imaps (4) λ x165 → sum λ x166 → (sels (scaledown 2 ((sel (16 16) (16) (sel (4 16 16) (4) (sel (1 4 16 16) (1) x133 x162) x164) x163 * (sel (16 16) (16) (sel (4 16 16) (4) (sel (1 4 16 16) (1) x139 x162) x164) x163 + (- (imaps (16) λ x167 → sel (16) (16) (sel (4 16) (4) (sel (1 4 16) (1) x143 x162) x164) x163)))))) x166 * sels (sel (4 4) (4) (sel (16 4 4) (16) (sel (1 16 4 4) (1) x21 x162) x166) x164) x165)
+let' x142 = imap λ x143 → imap λ x144 → imap λ x145 → imaps (16) λ x146 → sum λ x147 → (sels (sel (16 4) (16) (sel (4 16 4) (4) (sel (1 4 16 4) (1) x132 x143) x144) x145) x147 * sels (sel (4 4) (4) (sel (16 4 4) (16) (sel (1 16 4 4) (1) x24 x143) x146) x144) x147)
 
-let' x168 = imap λ x169 → imap λ x170 → imaps (16) λ x171 → (sum λ x172 → (sels (sel (4 4 16) (4 4) wval x172) x171 * sels (sel (16 4 4) (16) (sel (1 16 4 4) (1) x148 x169) x170) x172)) + (sum λ x173 → (sels (sel (4 4 16) (4 4) wkey x173) x171 * sels (sel (16 4 4) (16) (sel (1 16 4 4) (1) x154 x169) x170) x173)) + (sum λ x174 → (sels (sel (4 4 16) (4 4) wqry x174) x171 * sels (sel (16 4 4) (16) (sel (1 16 4 4) (1) x161 x169) x170) x174))
+let' x148 = imap λ x149 → imap λ x150 → imap λ x151 → sel (16 16) (16) (sel (4 16 16) (4) (sel (1 4 16 16) (1) x142 x149) x150) x151
 
-let' x175 = imap λ x176 → (sel (1 16 16) (1) x0 x176 * sel (1 16 16) (1) x0 x176)
+let' x152 = imap λ x153 → imap λ x154 → imap λ x155 → sum λ x156 → (sels (sel (16 16) (16) (sel (4 16 16) (4) (sel (1 4 16 16) (1) x148 x153) x154) x155) x156 * sels (sel (16 16) (16) (sel (4 16 16) (4) (sel (1 4 16 16) (1) x136 x153) x154) x155) x156)
 
-let' x177 = imap λ x178 → (sqrt (imap λ x179 → scaledown 16 (sum λ x180 → sels (sel (16 16) (16) (sel (1 16 16) (1) x175 x178) x179) x180) + sel (16) (16) (scaledown 100000 1) x179))
+let' x157 = imap λ x158 → imap λ x159 → imap λ x160 → imaps (4) λ x161 → sum λ x162 → (sels (sel (16 16) (16) (sel (4 16 16) (4) (sel (1 4 16 16) (1) x136 x158) x160) x162) x159 * sels (sel (16 4) (16) (sel (4 16 4) (4) (sel (1 4 16 4) (1) x132 x158) x160) x162) x161)
 
-let' x181 = imap λ x182 → imap λ x183 → (- (((inv (sel (16) (16) (sel (1 16) (1) x177 x182) x183)) * ((sum λ x184 → (sels (sel (16 16) (16) (sel (1 16 16) (1) x0 x182) x183) x184 * sels (sel (16 16) (16) (sel (1 16 16) (1) x168 x182) x183) x184)) * (inv (sel (16) (16) (sel (1 16) (1) x177 x182) x183))))))
+let' x163 = imap λ x164 → imap λ x165 → imap λ x166 → imaps (4) λ x167 → sum λ x168 → (sels (sel (4 4) (4) (sel (16 4 4) (16) (sel (1 16 4 4) (1) x14 x164) x168) x166) x167 * sels (scaledown 2 ((sel (16 16) (16) (sel (4 16 16) (4) (sel (1 4 16 16) (1) x136 x164) x166) x168 * (sel (16 16) (16) (sel (4 16 16) (4) (sel (1 4 16 16) (1) x148 x164) x166) x168 + (- (imaps (16) λ x169 → sel (16) (16) (sel (4 16) (4) (sel (1 4 16) (1) x152 x164) x166) x168)))))) x165)
 
-let' x185 = imap λ x186 → imap λ x187 → imaps (16) λ x188 → scaledown 16 (sel (16) (16) ((sel (1 16) (1) x181 x186 * (inv (((1 + 1) * (sqrt (imap λ x189 → scaledown 16 (sum λ x190 → sels (sel (16 16) (16) (sel (1 16 16) (1) x175 x186) x189) x190) + sel (16) (16) (scaledown 100000 1) x189))))))) x187)
+let' x170 = imap λ x171 → imap λ x172 → imap λ x173 → imaps (4) λ x174 → sum λ x175 → (sels (scaledown 2 ((sel (16 16) (16) (sel (4 16 16) (4) (sel (1 4 16 16) (1) x136 x171) x173) x172 * (sel (16 16) (16) (sel (4 16 16) (4) (sel (1 4 16 16) (1) x148 x171) x173) x172 + (- (imaps (16) λ x176 → sel (16) (16) (sel (4 16) (4) (sel (1 4 16) (1) x152 x171) x173) x172)))))) x175 * sels (sel (4 4) (4) (sel (16 4 4) (16) (sel (1 16 4 4) (1) x19 x171) x175) x173) x174)
 
-let' x191 = imap λ x192 → imap λ x193 → imaps (16) λ x194 → sels (sel (16 16) (16) (sel (1 16 16) (1) x110 x192) x193) x194 + (sels (sel (16 16) (16) (sel (1 16 16) (1) x168 x192) x193) x194 * (inv (sel (16) (16) (sel (1 16) (1) x177 x192) x193))) + sels (sel (16 16) (16) ((sel (1 16 16) (1) x0 x192 * sel (1 16 16) (1) x185 x192)) x193) x194 + sels (sel (16 16) (16) ((sel (1 16 16) (1) x185 x192 * sel (1 16 16) (1) x0 x192)) x193) x194
+let' x177 = imap λ x178 → imap λ x179 → imaps (16) λ x180 → (sum λ x181 → (sels (sel (4 4 16) (4 4) wval x181) x180 * sels (sel (16 4 4) (16) (sel (1 16 4 4) (1) x157 x178) x179) x181)) + (sum λ x182 → (sels (sel (4 4 16) (4 4) wkey x182) x180 * sels (sel (16 4 4) (16) (sel (1 16 4 4) (1) x163 x178) x179) x182)) + (sum λ x183 → (sels (sel (4 4 16) (4 4) wqry x183) x180 * sels (sel (16 4 4) (16) (sel (1 16 4 4) (1) x170 x178) x179) x183))
 
-let' x195 = imap λ x196 → ((wp + sel (1 16 16) (1) ws x196) * (wp + sel (1 16 16) (1) ws x196))
+let' x184 = imap λ x185 → imap λ x186 → (sel (16 16) (16) (sel (1 16 16) (1) x0 x185) x186 * sel (16 16) (16) (sel (1 16 16) (1) x0 x185) x186)
 
-let' x197 = imap λ x198 → (sqrt (imap λ x199 → scaledown 16 (sum λ x200 → sels (sel (16 16) (16) (sel (1 16 16) (1) x195 x198) x199) x200) + sel (16) (16) (scaledown 100000 1) x199))
+let' x187 = imap λ x188 → imap λ x189 → scaledown 16 (sum λ x190 → sels (sel (16 16) (16) (sel (1 16 16) (1) x184 x188) x189) x190)
 
-let' x201 = imap λ x202 → imap λ x203 → (- (((inv (sel (16) (16) (sel (1 16) (1) x197 x202) x203)) * ((sum λ x204 → (sels (sel (16 16) (16) (wp + sel (1 16 16) (1) ws x202) x203) x204 * sels (sel (16 16) (16) (sel (1 16 16) (1) x191 x202) x203) x204)) * (inv (sel (16) (16) (sel (1 16) (1) x197 x202) x203))))))
+let' x191 = imap λ x192 → imap λ x193 → (sqrt (sel (16) (16) (sel (1 16) (1) x187 x192) x193 + scaledown 100000 1))
 
-let' x205 = imap λ x206 → imap λ x207 → imaps (16) λ x208 → scaledown 16 (sel (16) (16) ((sel (1 16) (1) x201 x206 * (inv (((1 + 1) * (sqrt (imap λ x209 → scaledown 16 (sum λ x210 → sels (sel (16 16) (16) (sel (1 16 16) (1) x195 x206) x209) x210) + sel (16) (16) (scaledown 100000 1) x209))))))) x207)
+let' x194 = imap λ x195 → imap λ x196 → (- (((inv (sel (16) (16) (sel (1 16) (1) x191 x195) x196)) * ((sum λ x197 → (sels (sel (16 16) (16) (sel (1 16 16) (1) x0 x195) x196) x197 * sels (sel (16 16) (16) (sel (1 16 16) (1) x177 x195) x196) x197)) * (inv (sel (16) (16) (sel (1 16) (1) x191 x195) x196))))))
+
+let' x198 = imap λ x199 → imap λ x200 → (sel (16) (16) (sel (1 16) (1) x194 x199) x200 * (inv (((1 + 1) * (sqrt (sel (16) (16) (sel (1 16) (1) x187 x199) x200 + scaledown 100000 1))))))
+
+let' x201 = imap λ x202 → imap λ x203 → imaps (16) λ x204 → scaledown 16 (sel (16) (16) (sel (1 16) (1) x198 x202) x203)
+
+let' x205 = imap λ x206 → imap λ x207 → imaps (16) λ x208 → sels (sel (16 16) (16) (sel (1 16 16) (1) x122 x206) x207) x208 + (sels (sel (16 16) (16) (sel (1 16 16) (1) x177 x206) x207) x208 * (inv (sel (16) (16) (sel (1 16) (1) x191 x206) x207))) + (sels (sel (16 16) (16) (sel (1 16 16) (1) x0 x206) x207) x208 * sels (sel (16 16) (16) (sel (1 16 16) (1) x201 x206) x207) x208) + (sels (sel (16 16) (16) (sel (1 16 16) (1) x201 x206) x207) x208 * sels (sel (16 16) (16) (sel (1 16 16) (1) x0 x206) x207) x208)
+
+let' x209 = imap λ x210 → imap λ x211 → (sel (16 16) (16) (wp + sel (1 16 16) (1) ws x210) x211 * sel (16 16) (16) (wp + sel (1 16 16) (1) ws x210) x211)
+
+let' x212 = imap λ x213 → imap λ x214 → scaledown 16 (sum λ x215 → sels (sel (16 16) (16) (sel (1 16 16) (1) x209 x213) x214) x215)
+
+let' x216 = imap λ x217 → imap λ x218 → (sqrt (sel (16) (16) (sel (1 16) (1) x212 x217) x218 + scaledown 100000 1))
+
+let' x219 = imap λ x220 → imap λ x221 → (- (((inv (sel (16) (16) (sel (1 16) (1) x216 x220) x221)) * ((sum λ x222 → (sels (sel (16 16) (16) (wp + sel (1 16 16) (1) ws x220) x221) x222 * sels (sel (16 16) (16) (sel (1 16 16) (1) x205 x220) x221) x222)) * (inv (sel (16) (16) (sel (1 16) (1) x216 x220) x221))))))
+
+let' x223 = imap λ x224 → imap λ x225 → (sel (16) (16) (sel (1 16) (1) x219 x224) x225 * (inv (((1 + 1) * (sqrt (sel (16) (16) (sel (1 16) (1) x212 x224) x225 + scaledown 100000 1))))))
+
+let' x226 = imap λ x227 → imap λ x228 → imaps (16) λ x229 → scaledown 16 (sel (16) (16) (sel (1 16) (1) x223 x227) x228)
 
 
 
-let dwp = imap λ x211 → sum λ x212 → (sel (16 16) (16) (sel (1 16 16) (1) x191 x212) x211 * (inv (imaps (16) λ x213 → sel (16) (16) (sel (1 16) (1) x197 x212) x211))) + sel (16 16) (16) (((wp + sel (1 16 16) (1) ws x212) * sel (1 16 16) (1) x205 x212)) x211 + sel (16 16) (16) ((sel (1 16 16) (1) x205 x212 * (wp + sel (1 16 16) (1) ws x212))) x211
+let dwp = imap λ x230 → imaps (16) λ x231 → sum λ x232 → (sels (sel (16 16) (16) (sel (1 16 16) (1) x205 x232) x230) x231 * (inv (sel (16) (16) (sel (1 16) (1) x216 x232) x230))) + (sels (sel (16 16) (16) (wp + sel (1 16 16) (1) ws x232) x230) x231 * sels (sel (16 16) (16) (sel (1 16 16) (1) x226 x232) x230) x231) + (sels (sel (16 16) (16) (sel (1 16 16) (1) x226 x232) x230) x231 * sels (sel (16 16) (16) (wp + sel (1 16 16) (1) ws x232) x230) x231)
 
-let dwkey = imap λ x214 → imaps (16) λ x215 → sum λ x216 → sum λ x217 → (sels (sel (16 4 4) (16) (sel (1 16 4 4) (1) x154 x216) x217) x214 * sels (sel (16 16) (16) (sel (1 16 16) (1) x8 x216) x217) x215)
+let dwkey = imap λ x233 → imaps (16) λ x234 → sum λ x235 → sum λ x236 → (sels (sel (16 4 4) (16) (sel (1 16 4 4) (1) x163 x235) x236) x233 * sels (sel (16 16) (16) (sel (1 16 16) (1) x7 x235) x236) x234)
 
-let dwqry = imap λ x218 → imaps (16) λ x219 → sum λ x220 → sum λ x221 → (sels (sel (16 4 4) (16) (sel (1 16 4 4) (1) x161 x220) x221) x218 * sels (sel (16 16) (16) (sel (1 16 16) (1) x8 x220) x221) x219)
+let dwqry = imap λ x237 → imaps (16) λ x238 → sum λ x239 → sum λ x240 → (sels (sel (16 4 4) (16) (sel (1 16 4 4) (1) x170 x239) x240) x237 * sels (sel (16 16) (16) (sel (1 16 16) (1) x7 x239) x240) x238)
 
-let dwval = imap λ x222 → imaps (16) λ x223 → sum λ x224 → sum λ x225 → (sels (sel (16 4 4) (16) (sel (1 16 4 4) (1) x148 x224) x225) x222 * sels (sel (16 16) (16) (sel (1 16 16) (1) x8 x224) x225) x223)
+let dwval = imap λ x241 → imaps (16) λ x242 → sum λ x243 → sum λ x244 → (sels (sel (16 4 4) (16) (sel (1 16 4 4) (1) x157 x243) x244) x241 * sels (sel (16 16) (16) (sel (1 16 16) (1) x7 x243) x244) x242)
 
-let dwo = imap λ x226 → imap λ x227 → imaps (4) λ x228 → sum λ x229 → sum λ x230 → (sels (sel (16 16) (16) (sel (1 16 16) (1) x110 x229) x230) x226 * sels (sel (16 4) (16) (sel (4 16 4) (4) (sel (1 4 16 4) (1) x31 x229) x227) x230) x228)
+let dwo = imap λ x245 → imaps (16) λ x246 → sum λ x247 → sum λ x248 → (sels (sel (16 16) (16) (sel (1 16 16) (1) x122 x247) x248) x245 * sels (sel (16 16) (16) (sel (1 16 16) (1) x39 x247) x248) x246)
 
-let dmask = imap λ x231 → sum λ x232 → sum λ x233 → sel (16 16) (16) (sel (4 16 16) (4) (sel (1 4 16 16) (1) x127 x232) x233) x231
+let dmask = imap λ x249 → sum λ x250 → sum λ x251 → (sel (16 16) (16) (sel (4 16 16) (4) (sel (1 4 16 16) (1) x136 x250) x251) x249 * (sel (16 16) (16) (sel (4 16 16) (4) (sel (1 4 16 16) (1) x148 x250) x251) x249 + (- (imaps (16) λ x252 → sel (16) (16) (sel (4 16) (4) (sel (1 4 16) (1) x152 x250) x251) x249))))
 
-let dwu = imap λ x234 → imaps (16) λ x235 → sum λ x236 → sum λ x237 → (sels (sel (16 64) (16) (sel (1 16 64) (1) (((ind-positive (imap λ x238 → imap λ x239 → imaps (64) λ x240 → sum λ x241 → (sels (sel (64 16) (64) wu x240) x241 * sels (sel (16 16) (16) (sel (1 16 16) (1) x47 x238) x239) x241))) * x79)) x236) x237) x234 * sels (sel (16 16) (16) (sel (1 16 16) (1) x47 x236) x237) x235)
+let dwu = imap λ x253 → imaps (16) λ x254 → sum λ x255 → sum λ x256 → (sels (sel (16 64) (16) (sel (1 16 64) (1) (((ind-positive (imap λ x257 → imap λ x258 → imaps (64) λ x259 → sum λ x260 → (sels (sel (64 16) (64) wu x259) x260 * sels (sel (16 16) (16) (sel (1 16 16) (1) x48 x257) x258) x260))) * x86)) x255) x256) x253 * sels (sel (16 16) (16) (sel (1 16 16) (1) x48 x255) x256) x254)
 
-let dwd = imap λ x242 → imaps (64) λ x243 → sum λ x244 → sum λ x245 → ((sum λ x246 → (sels (sel (27 16) (27) wc x246) x242 * (sels (sel (16 27) (16) (sel (1 16 27) (1) x60 x244) x245) x246 * (sels (sel (16 27) (16) (sel (1 16 27) (1) x72 x244) x245) x246 + (- (sel (16) (16) (sel (1 16) (1) x75 x244) x245)))))) * sels (sel (16 64) (16) (sel (1 16 64) (1) x55 x244) x245) x243)
+let dwd = imap λ x261 → imaps (64) λ x262 → sum λ x263 → sum λ x264 → ((sum λ x265 → (sels (sel (27 16) (27) wc x265) x261 * sels (sel (16 27) (16) (sel (1 16 27) (1) x82 x263) x264) x265)) * sels (sel (16 64) (16) (sel (1 16 64) (1) x55 x263) x264) x262)
 
-let dwc = imap λ x247 → imaps (16) λ x248 → sum λ x249 → sum λ x250 → ((sels (sel (16 27) (16) (sel (1 16 27) (1) x60 x249) x250) x247 * (sels (sel (16 27) (16) (sel (1 16 27) (1) x72 x249) x250) x247 + (- (sel (16) (16) (sel (1 16) (1) x75 x249) x250)))) * (sels (sel (16 16) (16) (sel (1 16 16) (1) x41 x249) x250) x248 + (sum λ x251 → (sels (sel (16 64) (16) wd x248) x251 * sels (sel (16 64) (16) (sel (1 16 64) (1) x55 x249) x250) x251))))
+let dwc = imap λ x266 → imaps (16) λ x267 → sum λ x268 → sum λ x269 → (sels (sel (16 27) (16) (sel (1 16 27) (1) x82 x268) x269) x266 * (sels (sel (16 16) (16) (sel (1 16 16) (1) x43 x268) x269) x267 + (sum λ x270 → (sels (sel (16 64) (16) wd x267) x270 * sels (sel (16 64) (16) (sel (1 16 64) (1) x55 x268) x269) x270))))
 
-let dws = imap λ x252 → imap λ x253 → (sel (16 16) (16) (sel (1 16 16) (1) x191 x252) x253 * (inv (imaps (16) λ x254 → sel (16) (16) (sel (1 16) (1) x197 x252) x253))) + sel (16 16) (16) (((wp + sel (1 16 16) (1) ws x252) * sel (1 16 16) (1) x205 x252)) x253 + sel (16 16) (16) ((sel (1 16 16) (1) x205 x252 * (wp + sel (1 16 16) (1) ws x252))) x253
+let dws = imap λ x271 → imap λ x272 → imaps (16) λ x273 → (sels (sel (16 16) (16) (sel (1 16 16) (1) x205 x271) x272) x273 * (inv (sel (16) (16) (sel (1 16) (1) x216 x271) x272))) + (sels (sel (16 16) (16) (wp + sel (1 16 16) (1) ws x271) x272) x273 * sels (sel (16 16) (16) (sel (1 16 16) (1) x226 x271) x272) x273) + (sels (sel (16 16) (16) (sel (1 16 16) (1) x226 x271) x272) x273 * sels (sel (16 16) (16) (wp + sel (1 16 16) (1) ws x271) x272) x273)
 
-let dtarget = imap λ x255 → imap λ x256 → imaps (27) λ x257 → (- ((sels ((ln (sel (16 27) (16) (sel (1 16 27) (1) x60 x255) x256))) x257 * sel (16) (16) (sel (1 16) (1) x66 x255) x256)))
+let dtarget = imap λ x274 → imap λ x275 → imaps (27) λ x276 → (- ((sels ((ln (sel (16 27) (16) (sel (1 16 27) (1) x66 x274) x275))) x276 * sel (16) (16) (sel (1 16) (1) x69 x274) x275)))

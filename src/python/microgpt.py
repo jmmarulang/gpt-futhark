@@ -8,23 +8,25 @@ Everything else is just efficiency.
 
 import os       # os.path.exists
 import math     # math.log, math.exp
+import numpy as np
+import matplotlib.pyplot as plt
 import random   # random.seed, random.choices, random.gauss, random.shuffle
-random.seed(42) # Let there be order among chaos
+seed = 1
+random.seed(seed) # Let there be order among chaos
 
-# Let there be a Dataset `docs`: list[str] of documents (e.g. a list of names)
-if not os.path.exists('input.txt'):
-    import urllib.request
-    names_url = 'https://raw.githubusercontent.com/karpathy/makemore/988aa59/names.txt'
-    urllib.request.urlretrieve(names_url, 'input.txt')
-docs = [line.strip() for line in open('input.txt') if line.strip()]
-random.shuffle(docs)
-print(f"num docs: {len(docs)}")
+futhark = "futhark/microgpt"
+# print(futhark)
+
+# Data
+file = open('input-mgpt/input.txt')
+docs = [line.strip() for line in file if line.strip()]
+# random.shuffle(docs)
 
 # Let there be a Tokenizer to translate strings to sequences of integers ("tokens") and back
 uchars = sorted(set(''.join(docs))) # unique characters in the dataset become token ids 0..n-1
 BOS = len(uchars) # token id for a special Beginning of Sequence (BOS) token
 vocab_size = len(uchars) + 1 # total number of unique tokens, +1 is for BOS
-print(f"vocab size: {vocab_size}")
+vocab = uchars + ["end"]
 
 # Let there be Autograd to recursively apply the chain rule through a computation graph
 class Value:
@@ -72,20 +74,23 @@ class Value:
                 child.grad += local_grad * v.grad
 
 # Initialize the parameters, to store the knowledge of the model
+num_steps = 1250 # number of training steps
 n_layer = 1     # depth of the transformer neural network (number of layers)
 n_embd = 16     # width of the network (embedding dimension)
 block_size = 16 # maximum context length of the attention window (note: the longest name is 15 characters)
 n_head = 4      # number of attention heads
 head_dim = n_embd // n_head # derived dimension of each head
-matrix = lambda nout, nin, std=0.08: [[Value(random.gauss(0, std)) for _ in range(nin)] for _ in range(nout)]
-state_dict = {'wte': matrix(vocab_size, n_embd), 'wpe': matrix(block_size, n_embd), 'lm_head': matrix(vocab_size, n_embd)}
+rand_matrix = lambda nout, nin, std=0.08: [[Value(random.gauss(0, std)) for _ in range(nin)] for _ in range(nout)]
+const_matrix = lambda num, nout, nin : [[Value(num) for _ in range(nin)] for _ in range(nout)]
+
+state_dict = {'wte': const_matrix(0.5, vocab_size, n_embd), 'wpe': const_matrix(0.5, block_size, n_embd), 'lm_head': const_matrix(0.5, vocab_size, n_embd)}
 for i in range(n_layer):
-    state_dict[f'layer{i}.attn_wq'] = matrix(n_embd, n_embd)
-    state_dict[f'layer{i}.attn_wk'] = matrix(n_embd, n_embd)
-    state_dict[f'layer{i}.attn_wv'] = matrix(n_embd, n_embd)
-    state_dict[f'layer{i}.attn_wo'] = matrix(n_embd, n_embd)
-    state_dict[f'layer{i}.mlp_fc1'] = matrix(4 * n_embd, n_embd)
-    state_dict[f'layer{i}.mlp_fc2'] = matrix(n_embd, 4 * n_embd)
+    state_dict[f'layer{i}.attn_wq'] = const_matrix(0.5, n_embd, n_embd)
+    state_dict[f'layer{i}.attn_wk'] = const_matrix(0.5, n_embd, n_embd)
+    state_dict[f'layer{i}.attn_wv'] = const_matrix(0.5, n_embd, n_embd)
+    state_dict[f'layer{i}.attn_wo'] = const_matrix(0.5, n_embd, n_embd)
+    state_dict[f'layer{i}.mlp_fc1'] = const_matrix(0.5, 4 * n_embd, n_embd)
+    state_dict[f'layer{i}.mlp_fc2'] = const_matrix(0.5, n_embd, 4 * n_embd)
 params = [p for mat in state_dict.values() for row in mat for p in row] # flatten params into a single list[Value]
 print(f"num params: {len(params)}")
 
@@ -104,6 +109,8 @@ def rmsnorm(x):
     ms = sum(xi * xi for xi in x) / len(x)
     scale = (ms + 1e-5) ** -0.5
     return [xi * scale for xi in x]
+
+def to_data(x) : return x.data
 
 def gpt(token_id, pos_id, keys, values):
     tok_emb = state_dict['wte'][token_id] # token embedding
@@ -149,7 +156,6 @@ m = [0.0] * len(params) # first moment buffer
 v = [0.0] * len(params) # second moment buffer
 
 # Repeat in sequence
-num_steps = 1000 # number of training steps
 for step in range(num_steps):
 
     # Take single document, tokenize it, surround it with BOS special token on both sides
@@ -166,7 +172,7 @@ for step in range(num_steps):
         probs = softmax(logits)
         loss_t = -probs[target_id].log()
         losses.append(loss_t)
-    loss = (1 / n) * sum(losses) # final average loss over the document sequence. May yours be low.
+    loss = (1 / block_size) * sum(losses) # final average loss over the document sequence. May yours be low.
 
     # Backward the loss, calculating the gradients with respect to all model parameters
     loss.backward()
@@ -183,18 +189,39 @@ for step in range(num_steps):
 
     print(f"step {step+1:4d} / {num_steps:4d} | loss {loss.data:.4f}", end='\r')
 
-# Inference: may the model babble back to us
-temperature = 0.5 # in (0, 1], control the "creativity" of generated text, low to high
-print("\n--- inference (new, hallucinated names) ---")
-for sample_idx in range(20):
-    keys, values = [[] for _ in range(n_layer)], [[] for _ in range(n_layer)]
-    token_id = BOS
-    sample = []
-    for pos_id in range(block_size):
-        logits = gpt(token_id, pos_id, keys, values)
-        probs = softmax([l / temperature for l in logits])
-        token_id = random.choices(range(vocab_size), weights=[p.data for p in probs])[0]
-        if token_id == BOS:
+#-------------------------------------
+# PROBS
+
+doc = list("marulanda")
+dl = len(doc) + 2
+
+# sequence ids
+python_tokens = [BOS] + [vocab.index(ch) for ch in doc] + [BOS]
+n = min(block_size, len(tokens))
+keys, vals = [[]], [[]]
+seq_logits = []
+
+for pos_id in range(n):
+    tok_id = python_tokens[pos_id]
+    tok_logits = gpt(tok_id, pos_id, keys, vals)
+    seq_logits.append(logits)
+
+seq_logits = np.vectorize(to_data)(seq_logits)
+
+# Probs
+while True:
+    torch_index = int(input("torch index <- "))
+    if (torch_index == -1):
             break
-        sample.append(uchars[token_id])
-    print(f"sample {sample_idx+1:2d}: {''.join(sample)}")
+    barWidth = 0.25
+    torch_data = seq_logits[torch_index]
+
+    br1 = np.arange(len(torch_data))
+    br2 = [x + barWidth for x in br1]
+    br3 = [x + barWidth for x in br2]
+    plt.bar(br1, torch_data, width=barWidth, label="python")
+    plt.xticks([r + barWidth for r in range(len(torch_data))], vocab)
+    plt.xlabel('next token', fontsize = 12)
+    plt.legend()
+    plt.savefig('python_' + "".join(doc) + "_seed_" + str(seed) + "_index_" + str(torch_index) + "_iter_" + str(num_steps) + '_.png')
+    plt.show()

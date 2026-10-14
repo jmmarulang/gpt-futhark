@@ -475,7 +475,6 @@ def grad_loss (dl : i64) (p : params) (tokens : [16]i64) (mask : [16][16]f64) :
    let dwte = (imap2 27 16 (\m n -> nn64.isum1 16 (\k -> if (tokens[k] == m) then dwseq[k][n] else nn64.zero)))
    in  (dwte, dwpe, dwqry, dwkey, dwval, dwout, dwup, dwdown, dwvoc)
 
-
 def cal_step (dl : i64) (p : params) (mp : params) (vp : params)
   (tokens : [16]i64) (mask : [16][16]f64)
   (step : i64) n :

@@ -257,8 +257,8 @@ module Extract where
 
   grad-bgpt-loss-s : String
   grad-bgpt-loss-s = pp bgpt-loss-e
-    (ε ▹ "mask" ▹ "wpe" ▹ "wqry" ▹ "wkey" ▹ "wval" ▹ "wout" ▹ "wup"
-       ▹ "wdown" ▹ "wvoc" ▹ "wseq" ▹ "target")
+    (ε ▹ "wp" ▹ "wkey" ▹ "wqry" ▹ "wval" ▹ "wo"
+         ▹ "mask" ▹ "wu" ▹ "wd" ▹ "wc" ▹ "ws" ▹ "target")
 
   grad-bgpt-loss-pp = Pretty.pretty bgpt-loss-e
     (ε ▹ "wp" ▹ "wkey" ▹ "wqry" ▹ "wval" ▹ "wo"
