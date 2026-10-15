@@ -669,12 +669,11 @@ module Primitives where
                 → E Γ $ ar $ []
     bgpt-loss {sl} {ed} {ah} {hd} {fd} {vo} {bs} sc θ ws target =
       Let logits := bgpt-forward {bs = bs} sc θ ws In
-      Let probs := map {bs} (map {sl} ℙ) logits In
-      Let cross := zipwith {bs} (zipwith {sl} cross-entropy) ⟨ target ⟩ probs In
-      avg cross
+      Let l := ⟨ target ⟩ ⊠ map {bs} (map {sl} λ x → ⊟ (ln (ℙ x))) logits In
+      scaledown (len sl ℕ.* len bs) (Sum λ i → (sels l i))
 
     AH = [ 4 ] ; HD = [ 4 ] ; SL = [ 16 ] ; FD = [ 64 ] ; SC = 2
-    VO = [ 27 ] ; BS = [ 1 ] ; ED = [ 16 ]
+    VO = [ 27 ] ; BS = [ 5 ] ; ED = [ 16 ]
 
     PR : AH * HD ≈ ED
     PR = cons

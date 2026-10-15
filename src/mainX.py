@@ -37,13 +37,13 @@ vocab = uchars + [bos]
 # Initialize the parameters, to store the knowledge of the model
 matrix_type = 'rand'
 steps = 1
-bs = 1
+bs = 5
 iters = bs * steps
 ed = 16     # width of the network (embedding dimension)
 sl = 16 # maximum context length of the attention window (note: the longest name is 15 characters)
 ah = 4      # number of attention heads
 hd = ed // ah # derived dimension of each head
-big_num = 1000000000000000000000000000000000000000
+big_num = 1000000000000000000000000000000000000000000000000000000000000000
 
 # Tokenization and Padding
 seqs = []
@@ -239,14 +239,14 @@ cau_mask = (ones - np.tril(ones))
 # PROBS
 
 # input
-doc = "wakuntchapinka"
-# doc = "marulanda"
+# doc = "wakuntchapinka"
+doc = "marulanda"
 doc = doc[:sl - 2]
 dl = len(doc) + 2
 doc = bos + doc + bos
 doc = doc + (bos * (sl - dl))
 dl = len(doc)
-assert len(doc) == sl
+assert dl == sl
 print("".join(doc))
 # sequence ids
 python_tokens = [vocab.index(ch) for ch in doc]
@@ -277,36 +277,74 @@ with futhark_server.Server(futhark) as server:
     # print('to_params')
     server.cmd_call('to_params', 'fparams', *fwdic.keys())
     # print('forward_seq')
-    server.cmd_call('forward', 'flogits', 'fparams', 'tokens', 'mask')
     # print('cal_loss')
+    server.cmd_call('cal_target', 'ftarget', 'tokens')
+    server.cmd_call('cal_target_mask', 'ftarget_weights', 'dl', 'ftarget')
+    server.cmd_call('forward', 'flogits', 'fparams', 'tokens', 'mask')
     server.cmd_call('loss', 'floss', 'dl', 'fparams', 'tokens', 'mask')
     futhark_logits = server.get_value('flogits')
+    futhark_target = server.get_value('ftarget')
+    futhark_target_mask = server.get_value('ftarget_weights')
     futhark_loss = server.get_value('floss')
+
+# futhark_logits = futhark_logits.reshape(bs*sl, vocab_size)
 # futhark_probs = np.array([softmax(logits) for logits in futhark_logits])
 # futhark_probs = futhark_probs[: dl]
 
-# # Python
-python_logits, python_loss = mp.forward_seq(python_tokens, pwdic)
-python_logits = np.array([[val.data for val in logits] for logits in python_logits])
-python_loss = python_loss.data
+# # # Python
+# python_logits, python_loss = mp.forward_seq(python_tokens, pwdic)
+# python_logits = np.array([[val.data for val in logits] for logits in python_logits])
+# python_loss = python_loss.data
 
 #### Torch
 n = sl - 1
+torch_target = torch_tokens[:,1:n+1]
 torch_model.eval()
 with torch.no_grad():
     x = torch.tensor(torch_tokens[:,:n], dtype=torch.long)
-    y = torch.tensor(torch_tokens[:,1:n+1], dtype=torch.long)
-    torch_logits, torch_loss = torch_model(x , y)
+    y = torch.tensor(torch_target, dtype=torch.long)
+    torch_logits, torch_loss, torch_target = torch_model(x , y)
 torch_logits = torch_logits.numpy()
 torch_loss = torch_loss.numpy()
+torch_target = torch_target.numpy()
 # torch_probs = np.array([softmax(logits) for logits in torch_logits])
 
 #-------------------------------------
 # TESTS
 
-print("futhark loss", futhark_loss)
-print("python  loss", python_loss)
-print("torch   loss", torch_loss)
+# futhark_logits = futhark_logits[:,:-1,:]
+# futhark_logits = np.reshape(futhark_logits, (bs*(sl-1), vocab_size))
+# futhark_target_mask = np.reshape(futhark_target_mask[:,:-1,:], (bs*(sl-1), vocab_size))
+
+# print("futhark logits", futhark_logits.shape)
+# print("torch   logits", torch_logits.shape)
+# print("torch   target", torch_target.shape)
+
+
+# def npsoftmax(x):
+#     return np.exp(x)/sum(np.exp(x))
+
+# futhark_losses = futhark_logits.copy()
+
+# for i in range(bs):
+#     for j in range(sl):
+#         futhark_losses[i , j] = -np.log(npsoftmax(futhark_logits[i, j]))
+
+# futhark_losses = futhark_losses*futhark_target_mask
+
+# futhark_loss = np.sum(futhark_losses)/(bs*sl)
+# torch_loss = np.sum(torch_losses)
+
+print(futhark_loss)
+print(torch_loss)
+
+# print("futhark target weights", futhark_target_mask[0][-1])
+
+# print("futhark target", futhark_target[0])
+# print("torch   target", torch_target[0])
+# print("futhark loss", futhark_loss)
+# print("torch   loss", torch_losses)
+# print("python  loss", python_loss)
 
 
 #-------------------------------------
@@ -352,24 +390,25 @@ print("torch   loss", torch_loss)
 # plt.locator_params(axis='x', nbins=40)
 # plt.show()
 
-# Probs
-while True:
-    index = int(input("index <- "))
-    if index == -1: break
+# #### Probs
+# while True:
+#     bindex = int(input("batch <- "))
+#     if bindex == -1: break
+#     pindex = int(input("position <- "))
 
-    barWidth = 0.25
-    futhark_data = futhark_logits[0][index]
-    python_data = python_logits[index]
-    torch_data = torch_logits[index]
+#     barWidth = 0.25
+#     futhark_data = futhark_logits[bindex, pindex]
+#     # python_data = python_logits[index]
+#     torch_data = torch_logits[bindex, pindex]
 
-    br1 = np.arange(len(torch_data))
-    br2 = [x + barWidth for x in br1]
-    br3 = [x + barWidth for x in br2]
-    plt.bar(br1, futhark_data, width=barWidth, label="futhark")
-    plt.bar(br2, python_data, width=barWidth, label="python")
-    plt.bar(br3, torch_data, width=barWidth, label="torch")
-    plt.xticks([r + barWidth for r in range(len(torch_data))], vocab)
-    plt.xlabel('next token probability', fontsize = 12)
-    plt.legend()
-    plt.savefig('figures/main_' + "".join(doc) + "_index_" + str(index) + "_seed_" + str(seed) + "_iter_" + str(steps) + "_matrix_" + str(matrix_type) +  '_.png')
-    plt.show()
+#     br1 = np.arange(len(torch_data))
+#     br2 = [x + barWidth for x in br1]
+#     br3 = [x + barWidth for x in br2]
+#     plt.bar(br1, futhark_data, width=barWidth, label="futhark")
+#     # plt.bar(br2, python_data, width=barWidth, label="python")
+#     plt.bar(br2, torch_data, width=barWidth, label="torch")
+#     plt.xticks([r + barWidth for r in range(len(torch_data))], vocab)
+#     plt.xlabel('next token probability', fontsize = 12)
+#     plt.legend()
+#     plt.savefig('figures/main_' + "".join(doc) + "_pindex_" + str(pindex) + "_seed_" + str(seed) + "_iter_" + str(steps) + "_matrix_" + str(matrix_type) +  '_.png')
+#     plt.show()
