@@ -237,6 +237,7 @@ in (let x21 = (imap3 5 16 27 (\i134 i135 i136 -> (target[i134][i135][i136] F.* (
 in x138[i136]))))))
 in ((isum3 5 16 27 (\i22 i23 i24 -> x21[i22][i23][i24])) F./ fromi64 80)))))))))))))))))))))))
 
+
 def grad : (mask: [16][16]real)
   -> (wp: [16][16]real)
   -> (wqry: [16][16]real)
@@ -383,13 +384,13 @@ let dwkey = (imap1 16 (\i459 -> (imap1 16 (\i460 -> (isum1 5 (\i461 -> (isum1 16
 let dwqry = (imap1 16 (\i463 -> (imap1 16 (\i464 -> (isum1 5 (\i465 -> (isum1 16 (\i466 -> (x393[i465][i466][i463] F.* x159[i465][i466][i464])))))))))
 let dwval = (imap1 16 (\i467 -> (imap1 16 (\i468 -> (isum1 5 (\i469 -> (isum1 16 (\i470 -> (x385[i469][i470][i467] F.* x159[i469][i470][i468])))))))))
 let dwo = (imap1 16 (\i471 -> (imap1 16 (\i472 -> (isum1 5 (\i473 -> (isum1 16 (\i474 -> (x308[i473][i474][i471] F.* x229[i473][i474][i472])))))))))
--- let dmask = (imap1 16 (\i475 -> (imap1 16 (\i478 -> (isum1 5 (\i476 -> (isum1 4 (\i477 -> (x327[i476][i477][i475][i478] F.* (x342[i476][i477][i475][i478] F.+ (F.neg x347[i476][i477][i475])))))))))))
+let dmask = (imap1 16 (\i475 -> (imap1 16 (\i478 -> (isum1 5 (\i476 -> (isum1 4 (\i477 -> (x327[i476][i477][i475][i478] F.* (x342[i476][i477][i475][i478] F.+ (F.neg x347[i476][i477][i475])))))))))))
 let dwu = (imap1 64 (\i479 -> (imap1 16 (\i480 -> (isum1 5 (\i481 -> (isum1 16 (\i482 -> (x277[i481][i482][i479] F.* x242[i481][i482][i480])))))))))
 let dwd = (imap1 16 (\i483 -> (imap1 64 (\i484 -> (isum1 5 (\i485 -> (isum1 16 (\i486 -> (x267[i485][i486][i483] F.* x254[i485][i486][i484])))))))))
 let dwc = (imap1 27 (\i487 -> (imap1 16 (\i488 -> (isum1 5 (\i489 -> (isum1 16 (\i490 -> (x144[i489][i490][i487] F.* x263[i489][i490][i488])))))))))
 let dws = (imap1 5 (\i491 -> (imap2 16 16 (\i492 i493 -> x452[i491][i492][i493]))))
--- let dtarget = (imap3 5 16 27 (\i494 i495 i496 -> (x124[i494][i495][i496] F.* (F.neg (F.log (let x498 = (isoftmax1 27 (\i497 -> x0[i494][i495][i497]))
--- in x498[i496]))))))
+let dtarget = (imap3 5 16 27 (\i494 i495 i496 -> (x124[i494][i495][i496] F.* (F.neg (F.log (let x498 = (isoftmax1 27 (\i497 -> x0[i494][i495][i497]))
+in x498[i496]))))))
 
 in (dws, dwp, dwqry, dwkey, dwval, dwo, dwu, dwd, dwc)
 }
@@ -441,17 +442,17 @@ entry forward (p : params) (tokens : [bs][sl]i64) (mask : [sl][sl]f64) : [bs][sl
    let {wt, wp, wqry, wkey, wval, wo, wu, wd, wc} = p
    let ws = (imap3 bs sl ed (\i j k -> wt[tokens[i][j]][k]))
    in (nn64.forward_seq
-        (mask  :> [16][16]f64)
+        (mask :> [16][16]f64)
         (wp   :> [16][16]f64)
-        (wqry  :> [16][16]f64)
-        (wkey  :> [16][16]f64)
-        (wval  :> [16][16]f64)
-        (wo  :> [16][16]f64)
+        (wqry :> [16][16]f64)
+        (wkey :> [16][16]f64)
+        (wval :> [16][16]f64)
+        (wo   :> [16][16]f64)
         (wu   :> [64][16]f64)
-        (wd :> [16][64]f64)
-        (wc  :> [27][16]f64)
-        (ws    :> [5][16][16]f64)
-               :> [bs][sl][vo]f64)
+        (wd   :> [16][64]f64)
+        (wc   :> [27][16]f64)
+        (ws   :> [5][16][16]f64)
+              :> [bs][sl][vo]f64)
 
 entry cal_target (tokens : [bs][sl]i64) : [bs][sl]i64 =
   imap2 bs sl (\i j -> if (j < sl - 1) then tokens[i][j + 1] else vo)
@@ -539,8 +540,9 @@ def adam_opt2 [n] [m] (w : [n][m]f64) (mw : [n][m]f64) (vw : [n][m]f64)
   in (new_w, new_mw, new_vw)
 
 def adam_opt (p : params) (mp : params) (vp : params)
-  (dp : params) (step : i64) (lt_r : f64) :
+  (dp : params) (step : i64) steps :
   (params,  params,  params) =
+  let lt_r = 0.01 * (1 - (nn64.fromi64 step) / (nn64.fromi64 steps))
   let (wt, mwt, vwt) =
     adam_opt2 p.wt mp.wt vp.wt dp.wt step lt_r
   let (wp, mwp, vwp) =
@@ -564,6 +566,34 @@ def adam_opt (p : params) (mp : params) (vp : params)
   let vp' = to_params vwt vwp vwqry vwkey vwval vwo vwu vwd vwc
   in (p', mp', vp')
 
+def cal_step (dl : i64) (p : params) (mp : params) (vp : params)
+  (batch : [bs][sl]i64) (mask : [sl][sl]f64)
+  (step : i64) steps :
+  (params,  params,  params , f64) =
+  let loss = loss dl p batch mask
+  -- cal gradient
+  let (dwt, dwp, dwqry, dwkey, dwval, dwo, dwu, dwd, dwc) =
+    grad dl p batch mask
+  let dp = to_params dwt dwp dwqry dwkey dwval dwo dwu dwd dwc
+  -- cal new model weights
+  let (p', mp', vp') =
+    adam_opt p mp vp dp step steps
+  in (p', mp', vp', loss)
+
+entry train [steps] (p : params) (mp : params) (vp : params)
+  (masks : [steps][sl][sl]f64) (dls  : [steps]i64)
+  (batches  : [steps][bs][sl]i64) =
+  let losses = imap1 steps (\_ -> 0)
+  let (new_p, new_mp, new_vp, new_losses) =
+    loop (p', mp', vp', losses') = (p, mp, vp, losses)
+    for step < steps do
+      let dl = dls[step]
+      let batch = batches[step]
+      let mask = masks[step]
+      let (p', mp', vp', loss) = (cal_step dl p' mp' vp' batch mask step steps)
+      let losses' = copy losses' with [step] = loss
+      in (p', mp', vp', losses')
+  in ((from_params new_p), (from_params new_mp), (from_params new_vp), new_losses)
 
 entry zero_params : params =
   let wt = imap2 vo ed (\_ _ -> 0)

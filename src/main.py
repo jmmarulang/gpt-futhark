@@ -98,121 +98,121 @@ ones = np.ones((sl,sl))
 cau_mask = (ones - np.tril(ones))
 
 
-# # # # -------------------------------------
-# # # TRAINING PY
+# # # -------------------------------------
+# # TRAINING PY
 
-# print("Training Python")
+print("Training Python")
 
-# start = time.time()
-# python_losses = mp.train(docs, uchars, BOS, num_steps, pwdic)
-# end = time.time()
+start = time.time()
+python_losses = mp.train(docs, uchars, BOS, num_steps, pwdic)
+end = time.time()
 
-# print("python training time", end - start)
-# print("python final loss", python_losses[-1])
+print("python training time", end - start)
+print("python final loss", python_losses[-1])
 
-# # -------------------------------------
-# # TRAINING FUT
+# -------------------------------------
+# TRAINING FUT
 
-# print("Training Futhark")
+print("Training Futhark")
 
-# futhark_losses = np.zeros((num_steps)).astype(np.float64)
+futhark_losses = np.zeros((num_steps)).astype(np.float64)
 
-# # Preprocessing
-# masks = np.zeros((num_steps, sl, sl)).astype(np.float64)
-# dls = np.zeros((num_steps)).astype(np.int64)
-# seqs = np.zeros((num_steps, sl)).astype(np.int64, copy=False)
+# Preprocessing
+masks = np.zeros((num_steps, sl, sl)).astype(np.float64)
+dls = np.zeros((num_steps)).astype(np.int64)
+seqs = np.zeros((num_steps, sl)).astype(np.int64, copy=False)
 
-# for step in range(num_steps):
-#     # doc lengths
-#     doc = docs[step % len(docs)]
-#     doc = doc[:sl - 2]
-#     dl = len(doc) + 2
-#     dls[step] = dl
-#     # Masking
-#     pad_mask = np.ones((sl,sl))
-#     for i in range(dl):
-#         pad_mask[i][ 0 : dl] = 0
-#     mask = np.where(cau_mask + pad_mask >= 1, 1, 0).astype(np.float64)
-#     mask = -1*mask*big_num
-#     masks[step] = mask
+for step in range(num_steps):
+    # doc lengths
+    doc = docs[step % len(docs)]
+    doc = doc[:sl - 2]
+    dl = len(doc) + 2
+    dls[step] = dl
+    # Masking
+    pad_mask = np.ones((sl,sl))
+    for i in range(dl):
+        pad_mask[i][ 0 : dl] = 0
+    mask = np.where(cau_mask + pad_mask >= 1, 1, 0).astype(np.float64)
+    mask = -1*mask*big_num
+    masks[step] = mask
 
-# with futhark_server.Server(futhark) as server:
-#     server.put_value('num_steps',
-#                      np.array(num_steps).astype(np.int64, copy=False))
-#     for k , data in fwdic.items():
-#         server.put_value(k, data)
-#     server.cmd_call('to_params', 'p', *fwdic.keys())
-#     server.cmd_call('zero_params', 'mp')
-#     server.cmd_call('zero_params', 'vp')
-#     server.put_value('masks', masks)
-#     server.put_value('dls', dls)
+with futhark_server.Server(futhark) as server:
+    server.put_value('num_steps',
+                     np.array(num_steps).astype(np.int64, copy=False))
+    for k , data in fwdic.items():
+        server.put_value(k, data)
+    server.cmd_call('to_params', 'p', *fwdic.keys())
+    server.cmd_call('zero_params', 'mp')
+    server.cmd_call('zero_params', 'vp')
+    server.put_value('masks', masks)
+    server.put_value('dls', dls)
 
-#     # start timer
-#     start = time.time()
-#     # Tokenization
-#     for step in range(num_steps):
-#         doc = docs[step % len(docs)]
-#         doc = doc[:sl - 2]
-#         dl = len(doc) + 2
-#         tokens = [BOS] + [uchars.index(ch) for ch in doc] + [BOS]
-#         # Padding
-#         futhark_tokens = tokens + ([BOS] * (sl - dl))
-#         seqs[step] = futhark_tokens
-#     server.put_value('seqs', seqs)
-#     # server.cmd_call('cal_loss', 'loss', 'fparams', 'tokens', 'mask')
-#     server.cmd_call('train', 'p_mp_vp_loss', 'p', 'mp', 'vp', 'masks',
-#                     'dls', 'seqs')
-#     end = time.time()
-#     print("futhark training time", end - start)
-#     p_mp_vp_loss = server.get_value('p_mp_vp_loss')
+    # start timer
+    start = time.time()
+    # Tokenization
+    for step in range(num_steps):
+        doc = docs[step % len(docs)]
+        doc = doc[:sl - 2]
+        dl = len(doc) + 2
+        tokens = [BOS] + [uchars.index(ch) for ch in doc] + [BOS]
+        # Padding
+        futhark_tokens = tokens + ([BOS] * (sl - dl))
+        seqs[step] = futhark_tokens
+    server.put_value('seqs', seqs)
+    # server.cmd_call('cal_loss', 'loss', 'fparams', 'tokens', 'mask')
+    server.cmd_call('train', 'p_mp_vp_loss', 'p', 'mp', 'vp', 'masks',
+                    'dls', 'seqs')
+    end = time.time()
+    print("futhark training time", end - start)
+    p_mp_vp_loss = server.get_value('p_mp_vp_loss')
 
-# for i , k in enumerate(dimdic.keys()):
-#     fwdic[k] = p_mp_vp_loss[i]
-#     fmdic[k] = p_mp_vp_loss[i + 9]
-#     fmdic[k] = p_mp_vp_loss[i + 18]
+for i , k in enumerate(dimdic.keys()):
+    fwdic[k] = p_mp_vp_loss[i]
+    fmdic[k] = p_mp_vp_loss[i + 9]
+    fmdic[k] = p_mp_vp_loss[i + 18]
 
-# futhark_losses = p_mp_vp_loss[-1]
-# print("futhark final loss", futhark_losses[-1])
+futhark_losses = p_mp_vp_loss[-1]
+print("futhark final loss", futhark_losses[-1])
 
-# try:
-#     np.save("fwdic.npy", fwdic, allow_pickle=True)
-#     file = open('fwdic.txt', 'wt')
-#     file.write(str(fwdic))
-#     file.close()
-# except :
-#     print("It refused")
+try:
+    np.save("fwdic.npy", fwdic, allow_pickle=True)
+    file = open('fwdic.txt', 'wt')
+    file.write(str(fwdic))
+    file.close()
+except :
+    print("It refused")
 
-# # -------------------------------------
-# # TRAINING TORCH
+# -------------------------------------
+# TRAINING TORCH
 
-# print("Training Torch")
+print("Training Torch")
 
-# torch_losses = np.zeros((num_steps)).astype(np.float64)
+torch_losses = np.zeros((num_steps)).astype(np.float64)
 
-# torch_model.train()
-# for step in range(num_steps):
-#     doc = docs[step % len(docs)]
-#     tokens = [BOS] + [uchars.index(ch) for ch in doc] + [BOS]
-#     n = min(sl, len(tokens) - 1)
+torch_model.train()
+for step in range(num_steps):
+    doc = docs[step % len(docs)]
+    tokens = [BOS] + [uchars.index(ch) for ch in doc] + [BOS]
+    n = min(sl, len(tokens) - 1)
 
-#     x = torch.tensor([tokens[:n]], dtype=torch.long)
-#     y = torch.tensor([tokens[1:n+1]], dtype=torch.long)
+    x = torch.tensor([tokens[:n]], dtype=torch.long)
+    y = torch.tensor([tokens[1:n+1]], dtype=torch.long)
 
-#     logits, loss = torch_model(x, y)
+    logits, loss = torch_model(x, y)
 
-#     optimizer.zero_grad(set_to_none=True)
-#     loss.backward()
-#     optimizer.step()
-#     scheduler.step()
+    optimizer.zero_grad(set_to_none=True)
+    loss.backward()
+    optimizer.step()
+    scheduler.step()
 
-#     # Danger: Not used during computation
-#     torch_losses[step] = loss.detach().numpy()
+    # Danger: Not used during computation
+    torch_losses[step] = loss.detach().numpy()
 
-#     print(f"step {step+1:4d} / {num_steps:4d} | loss {loss.item():.4f}", end='\r')
+    print(f"step {step+1:4d} / {num_steps:4d} | loss {loss.item():.4f}", end='\r')
 
-# end = time.time()
-# print("torch training time", end - start)
-# print("torch final loss", torch_losses[-1])
+end = time.time()
+print("torch training time", end - start)
+print("torch final loss", torch_losses[-1])
 
 #-------------------------------------
 # PROBS
