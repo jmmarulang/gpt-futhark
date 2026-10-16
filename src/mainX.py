@@ -36,7 +36,7 @@ vocab = uchars + [bos]
 
 # Initialize the parameters, to store the knowledge of the model
 matrix_type = 'rand'
-steps = 1000
+steps = 100
 bs = 5
 iters = bs * steps
 ed = 16     # width of the network (embedding dimension)
@@ -46,7 +46,7 @@ hd = ed // ah # derived dimension of each head
 big_num = 1000000000000000000000000000000000000000000000000000000000000000
 
 print("batch size", bs)
-print("number of steps", bs)
+print("number of steps", steps)
 print("iterations", iters)
 
 # Tokenization and Padding
@@ -220,19 +220,17 @@ with futhark_server.Server(futhark) as server:
             tokens = [vocab.index(ch) for ch in doc]
             batches[step][i] = tokens
     server.put_value('batches', batches)
-    server.cmd_call('train', 'p_mp_vp_loss', 'p', 'mp', 'vp', 'masks',
+    server.cmd_call('train', 'p_mp_vp', 'p', 'mp', 'vp', 'masks',
                     'dls', 'batches')
     end = time.time()
-    p_mp_vp_loss = server.get_value('p_mp_vp_loss')
+    p_mp_vp = server.get_value('p_mp_vp')
 
 print("futhark training time", end - start)
 
 for i , k in enumerate(fdimdic.keys()):
-    fwdic[k] = p_mp_vp_loss[i]
-    fmdic[k] = p_mp_vp_loss[i + 9]
-    fmdic[k] = p_mp_vp_loss[i + 18]
-
-futhark_losses = p_mp_vp_loss[-1]
+    fwdic[k] = p_mp_vp[i]
+    fmdic[k] = p_mp_vp[i + 9]
+    fmdic[k] = p_mp_vp[i + 18]
 
 try:
     np.save("fwdic.npy", fwdic, allow_pickle=True)
@@ -241,11 +239,6 @@ try:
     file.close()
 except :
     print("It refused")
-
-## Results
-print("torch   final loss", torch_losses[-1])
-
-print("futhark final loss", futhark_losses[-1])
 
 # # # # # -------------------------------------
 # # # TRAINING PY

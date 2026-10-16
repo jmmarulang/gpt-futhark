@@ -569,6 +569,32 @@ def adam_opt (p : params) (mp : params) (vp : params)
 def cal_step (dl : i64) (p : params) (mp : params) (vp : params)
   (batch : [bs][sl]i64) (mask : [sl][sl]f64)
   (step : i64) steps :
+  (params,  params,  params) =
+  -- cal gradient
+  let (dwt, dwp, dwqry, dwkey, dwval, dwo, dwu, dwd, dwc) =
+    grad dl p batch mask
+  let dp = to_params dwt dwp dwqry dwkey dwval dwo dwu dwd dwc
+  -- cal new model weights
+  let (p', mp', vp') =
+    adam_opt p mp vp dp step steps
+  in (p', mp', vp')
+
+entry train [steps] (p : params) (mp : params) (vp : params)
+  (masks : [steps][sl][sl]f64) (dls  : [steps]i64)
+  (batches  : [steps][bs][sl]i64) =
+  let (new_p, new_mp, new_vp) =
+    loop (p', mp', vp') = (p, mp, vp)
+    for step < steps do
+      let dl = dls[step]
+      let batch = batches[step]
+      let mask = masks[step]
+      let (p', mp', vp') = (cal_step dl p' mp' vp' batch mask step steps)
+      in (p', mp', vp')
+  in ((from_params new_p), (from_params new_mp), (from_params new_vp))
+
+def cal_step_verbose (dl : i64) (p : params) (mp : params) (vp : params)
+  (batch : [bs][sl]i64) (mask : [sl][sl]f64)
+  (step : i64) steps :
   (params,  params,  params , f64) =
   let loss = loss dl p batch mask
   -- cal gradient
@@ -580,7 +606,7 @@ def cal_step (dl : i64) (p : params) (mp : params) (vp : params)
     adam_opt p mp vp dp step steps
   in (p', mp', vp', loss)
 
-entry train [steps] (p : params) (mp : params) (vp : params)
+entry train_verbose [steps] (p : params) (mp : params) (vp : params)
   (masks : [steps][sl][sl]f64) (dls  : [steps]i64)
   (batches  : [steps][bs][sl]i64) =
   let losses = imap1 steps (\_ -> 0)
@@ -590,7 +616,7 @@ entry train [steps] (p : params) (mp : params) (vp : params)
       let dl = dls[step]
       let batch = batches[step]
       let mask = masks[step]
-      let (p', mp', vp', loss) = (cal_step dl p' mp' vp' batch mask step steps)
+      let (p', mp', vp', loss) = (cal_step_verbose dl p' mp' vp' batch mask step steps)
       let losses' = copy losses' with [step] = loss
       in (p', mp', vp', losses')
   in ((from_params new_p), (from_params new_mp), (from_params new_vp), new_losses)
