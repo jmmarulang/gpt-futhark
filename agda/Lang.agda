@@ -1,14 +1,12 @@
 {-# OPTIONS  --backtracking-instance-search #-}
 
-
-
 -- {-# OPTIONS --warn=noUserWarning #-}
 module _ where
 module _ where
   open import Data.Nat using (ℕ; zero; suc)
   open import Data.List as L using (List; []; _∷_)
   open import Ar hiding (sum; slide; backslide; imapb; selb)
-  open import Relation.Binary.PropositionalEquality
+  open import Relation.Binary.PropositionalEquality hiding ([_])
   open import Relation.Nullary
   open import Function
   infixl 15 _▹_
@@ -85,92 +83,105 @@ module _ where
   infixl 10 _⊞_
   infixl 10 _⊟_
   infixl 15 _⊠_
-  infixl 15 _⊔_
-
-  data Bop : Set where
-    plus mul : Bop
-
-  -- Jairo made
-  data Uop : Set where
-    logistic
-      neg
-    -- Jairo made
-      -- exp
-      rectifier
-      squared
-      inverse
-      ind-positive
-      logarithm
-      softmax
-      : Uop
+  -- infixl 15 _⊔_
 
   unit : S
   unit = []
 
+  data Kop : Set where
+    𝟘ₒ 𝟙ₒ : Kop
+
+  -- Jairo made
+  data Uop : Set where
+    -- logistic
+    ⊟ₒ
+    -- Jairo made
+      reluₒ
+      √ₒ
+      𝟙/ₒ
+      𝕚+ₒ
+      lnₒ
+      ℙₒ : Uop
+    scₒ  : ℕ → Uop
+  data Bop : Set where
+    ⊞ₒ ⊠ₒ : Bop
+
+  data Mop   : S → S → S → Set where
+    imapsₒ : Mop s unit s
+    imapₒ  : q ≡ s ⊗ p → Mop s p q
+    imapbₒ : s * p ≈ q → Mop s p q
+    sumₒ   : Mop s p p
+
+  data Sop  : S → S → S → Set where
+    selsₒ : Sop s s unit
+    selₒ  : s ≡ p ⊗ q → Sop s p q
+    selbₒ : p * q ≈ s → Sop s p q
+
   data E : Ctx → IS → Set where
     var        : is ∈ Γ → E Γ is
-    zero       : E Γ (ar s)
-    one        : E Γ (ar s)
 
-    imaps      : E (Γ ▹ ix s) (ar unit) → E Γ (ar s)
-    sels       : E Γ (ar s) → E Γ (ix s) → E Γ (ar unit)
+    kop        : Kop → E Γ (ar s)
+    uop        : Uop → E Γ (ar s) → E Γ (ar s)
+    bop        : Bop → E Γ (ar s) → E Γ (ar s) → E Γ (ar s)
 
-    imap       : E (Γ ▹ ix s) (ar p) → E Γ (ar (s ⊗ p))
-    sel        : E Γ (ar (s ⊗ p)) → E Γ (ix s) → E Γ (ar p)
+    mop        : Mop s p q → E (Γ ▹ ix s) (ar p) → E Γ (ar q)
+    sop        : Sop s p q → E Γ (ar s) → E Γ (ix p) → E Γ (ar q)
 
-    imapb      : s * p ≈ q → E (Γ ▹ ix s) (ar p) → E Γ (ar q)
-    selb       : s * p ≈ q → E Γ (ar q) → E Γ (ix s) → E Γ (ar p)
-
-    sum        : E (Γ ▹ ix s) (ar p) → E Γ (ar p)
     zero-but   : E Γ (ix s) → E Γ (ix s) → E Γ (ar p) → E Γ (ar p)
 
-    slide      : E Γ (ix s) → s + p ≈ r → E Γ (ar r) → suc p ≈ u → E Γ (ar u)
-    backslide  : E Γ (ix s) → E Γ (ar u) → suc p ≈ u → s + p ≈ r → E Γ (ar r)
-
-    bin        : Bop → E Γ (ar s) → E Γ (ar s) → E Γ (ar s)
-    scaledown  : ℕ → E Γ (ar s) → E Γ (ar s)
     let′       : E Γ (ar s) → E (Γ ▹ ar s) (ar p) → E Γ (ar p)
-    -- Jairo made
-    un         : Uop → E Γ (ar s) → E Γ (ar s)
-    -- argmax    : suc p ≈ s → E Γ (ar s) → E Γ (ix s)
 
-  pattern 𝟙 = one
-  pattern 𝟘 = zero
+  pattern 𝟙 {s = s} = kop {s = s} 𝟙ₒ
+  pattern 𝟘 {s = s} = kop {s = s} 𝟘ₒ
 
-  pattern ⊟_ a = un neg a
-  -- pattern 𝕖^_ a = un exp a
-  pattern logi a = un logistic a
-  pattern sqrt a = un squared a
-  pattern 𝟙/ a = un inverse a
-  pattern relu a = un rectifier a
-  pattern ln a = un logarithm a
-  pattern 𝕀+ a = un ind-positive a
-  pattern ℙ a = un softmax a
+  pattern ⊟_ a = uop ⊟ₒ a
+  pattern √ a = uop √ₒ a
+  pattern 𝟙/   a = uop 𝟙/ₒ a
+  pattern relu a = uop reluₒ a
+  pattern ln   a = uop lnₒ a
+  pattern 𝕚+   a = uop 𝕚+ₒ a
+  pattern ℙ    a = uop ℙₒ a
+  pattern scaledown n a = uop (scₒ n) a
 
-  pattern _⊞_ a b = bin plus a b
-  pattern _⊠_ a b = bin mul a b
+  pattern _⊞_ a b = bop ⊞ₒ a b
+  pattern _⊠_ a b = bop ⊠ₒ a b
 
-  -- infixl 5 𝕀+
-  -- syntax 𝕀+ a b = 𝕀[ a < b ]
+  pattern imaps {s = s} {p = p} {q = q} a =
+    mop {s = s} {p = p} {q = q} imapsₒ a
+  pattern imap′ {s = s} {p = p} {q = q} a b =
+    mop {s = s} {p = p} {q = q} (imapₒ a) b
+  pattern imapb {s = s} {p = p} {q = q} a b =
+    mop {s = s} {p = p} {q = q} (imapbₒ a) b
+  pattern sum {s = s} {p = p} {q = q} a =
+    mop {s = s} {p = p} {q = q} sumₒ a
+
+  pattern sels {Γ = Γ} {s = s} {p = p} {q = q} a b =
+    sop {s = s} {p = p} {q = q} {Γ = Γ} selsₒ a b
+  pattern sel′ {Γ = Γ} {s = s} {p = p} {q = q} a b c =
+    sop {s = s} {p = p} {q = q} {Γ = Γ} (selₒ a) b c
+  pattern selb {s = s} {p = p} {q = q} a b c =
+    sop {s = s} {p = p} {q = q} (selbₒ a) b c
+
+  imap : E (Γ ▹ ix s) (ar p) → E Γ (ar (s ⊗ p))
+  imap e = imap′ refl e
+
+  sel : E Γ (ar (s ⊗ p)) → E Γ (ix s) → E Γ (ar p)
+  sel e i = sel′ refl e i
 
   _⊟_ : ( a b : E Γ (ar s)) → E Γ (ar s)
   _⊟_ a b = a ⊞ ⊟ b
 
-  -- maximum
-  _⊔_ : ( a b : E Γ (ar s)) → E Γ (ar s)
-  a ⊔ b = a ⊞ (relu (b ⊟ a))
-
   _//_ : ( a b : E Γ (ar s)) → E Γ (ar s)
   _//_ a b = a ⊠ (𝟙/ b)
 
-  𝕀0- : (E Γ (ar s)) → E Γ (ar s)
-  𝕀0- a = 𝟙 ⊟ 𝕀+ a
+  𝕚0- : (E Γ (ar s)) → E Γ (ar s)
+  𝕚0- a = 𝟙 ⊟ 𝕚+ a
 
-  𝕀0+ : (E Γ (ar s)) → E Γ (ar s)
-  𝕀0+ a = 𝕀0- (⊟ a)
+  𝕚0+ : (E Γ (ar s)) → E Γ (ar s)
+  𝕚0+ a = 𝕚0- (⊟ a)
 
-  𝕀≤ : (E Γ (ar s)) → (E Γ (ar s)) → E Γ (ar s)
-  𝕀≤ a b = 𝕀0+ (a ⊟ b)
+  𝕚≤ : (E Γ (ar s)) → (E Γ (ar s)) → E Γ (ar s)
+  𝕚≤ a b = 𝕚0+ (a ⊟ b)
 
   𝟚 : E Γ (ar s)
   𝟚 = 𝟙 ⊞ 𝟙
@@ -178,9 +189,12 @@ module _ where
   var-inj : ∀ {x y : is ∈ Γ} → (var x ≡ var y) → (x ≡ y)
   var-inj refl = refl
 
+  scaledown-inj : ∀ {x y} → scₒ x ≡ scₒ y → (x ≡ y)
+  scaledown-inj refl = refl
+
 module WkSub where
   open import Data.Nat using (ℕ; zero; suc; _+_)
-  open import Relation.Binary.PropositionalEquality
+  open import Relation.Binary.PropositionalEquality hiding ([_])
   open import Function
   open import Ar hiding (sum; slide; backslide; map ; imapb; selb)
 
@@ -196,24 +210,13 @@ module WkSub where
 
   wk : Γ ⊆ Δ → E Γ is → E Δ is
   wk s (var x) = var (wkv s x)
-  wk s zero = zero
-  wk s one = one
-  wk s (imaps e) = imaps (wk (keep s) e)
-  wk s (sels e e₁) = sels (wk s e) (wk s e₁)
-  wk s (imap e) = imap (wk (keep s) e)
-  wk s (sel e e₁) = sel (wk s e) (wk s e₁)
-  wk s (imapb x e) = imapb x (wk (keep s) e)
-  wk s (selb x e e₁) = selb x (wk s e) (wk s e₁)
-  wk s (sum e) = sum (wk (keep s) e)
+  wk s (kop x) = (kop x)
+  wk s (uop x e) = uop x (wk s e)
+  wk s (bop x e e₁) = bop x (wk s e) (wk s e₁)
+  wk s (mop x e) = mop x (wk (keep s) e)
+  wk s (sop x e e₁) = sop x (wk s e) (wk s e₁)
   wk s (zero-but e e₁ e₂) = zero-but (wk s e) (wk s e₁) (wk s e₂)
-  wk s (slide e x e₁ x₁) = slide (wk s e) x (wk s e₁) x₁
-  wk s (backslide e e₁ x x₁) = backslide (wk s e) (wk s e₁) x x₁
-  wk s (bin x e e₁) = bin x (wk s e) (wk s e₁)
-  wk s (scaledown x e) = scaledown x (wk s e)
-  wk s (let′ e e₁) = let′ (wk s e) (wk (keep s) e₁)
-  -- Jairo made
-  wk s (un x e) = un x (wk s e)
-  -- wk s (argmax pf e) = argmax pf (wk s e)
+  wk s (let′ e e₁) = let′(wk s e) (wk (keep s) e₁)
 
   _∙ʷ_ : Δ ⊆ Ψ → Γ ⊆ Δ → Γ ⊆ Ψ
   s ∙ʷ ε = s
@@ -235,7 +238,6 @@ module WkSub where
   ⊆-inj (keep s) = s ∙ʷ ⊆-eq
 
   open import Data.Empty
-
 
   _↑ : E Γ is → E (Γ ▹ ip) is
   _↑ = wk (skip ⊆-eq)
@@ -268,24 +270,13 @@ module WkSub where
 
   sub : E Δ is → Sub Γ Δ → E Γ is
   sub (var x) s = subv s x
-  sub zero s = zero
-  sub one s = one
-  sub (imaps e) s = imaps (sub e (skeep s))
-  sub (sels e e₁) s = sels (sub e s) (sub e₁ s)
-  sub (imap e) s = imap (sub e (skeep s))
-  sub (sel e e₁) s = sel (sub e s) (sub e₁ s)
-  sub (imapb x e) s = imapb x (sub e (skeep s))
-  sub (selb x e e₁) s = selb x (sub e s) (sub e₁ s)
-  sub (sum e) s = sum (sub e (skeep s))
+  sub (kop x) s = kop x
+  sub (uop x e) s = uop x (sub e s)
+  sub (bop x e e₁) s = bop x (sub e s) (sub e₁ s)
+  sub (mop x e) s = mop x (sub e (skeep s))
+  sub (sop x e e₁) s = sop x (sub e s) (sub e₁ s)
   sub (zero-but e e₁ e₂) s = zero-but (sub e s) (sub e₁ s) (sub e₂ s)
-  sub (slide e x e₁ x₁) s = slide (sub e s) x (sub e₁ s) x₁
-  sub (backslide e e₁ x x₁) s = backslide (sub e s) (sub e₁ s) x x₁
-  sub (bin x e e₁) s = bin x (sub e s) (sub e₁ s)
-  sub (scaledown x e) s = scaledown x (sub e s)
   sub (let′ e e₁) s = let′ (sub e s) (sub e₁ (skeep s))
-  -- Jairo made
-  sub (un x e) s = un x (sub e s)
-  -- sub (argmax pf e) s = argmax pf (sub e s)
 
   _∙ˢ_ : Sub Δ Ψ → Sub Γ Δ → Sub Γ Ψ
   ε ∙ˢ t = ε
@@ -311,24 +302,13 @@ module WkSub where
 
   sub-at-id : (e : E Γ is) → sub e sub-id ≡ e
   sub-at-id (var x) = subv-at-id x
-  sub-at-id zero = refl
-  sub-at-id one = refl
-  sub-at-id (imaps e) = cong imaps (sub-at-id e)
-  sub-at-id (sels e e₁) = cong₂ sels (sub-at-id e) (sub-at-id e₁)
-  sub-at-id (imap e) = cong imap (sub-at-id e)
-  sub-at-id (sel e e₁) = cong₂ sel (sub-at-id e) (sub-at-id e₁)
-  sub-at-id (imapb x e) = cong (imapb x) (sub-at-id e)
-  sub-at-id (selb x e e₁) = cong₂ (selb x) (sub-at-id e) (sub-at-id e₁)
-  sub-at-id (sum e) = cong sum (sub-at-id e)
-  sub-at-id (zero-but e e₁ e₂) rewrite (sub-at-id e) | sub-at-id e₁ | sub-at-id e₂ = refl
-  sub-at-id (slide e x e₁ x₁) rewrite sub-at-id e | sub-at-id e₁ = refl
-  sub-at-id (backslide e e₁ x x₁) rewrite sub-at-id e | sub-at-id e₁ = refl
-  sub-at-id (bin x e e₁) = cong₂ (bin x) (sub-at-id e) (sub-at-id e₁)
-  sub-at-id (scaledown x e) = cong (scaledown x) (sub-at-id e)
+  sub-at-id (kop x) = refl
+  sub-at-id (uop x e) = cong (uop x) (sub-at-id e)
+  sub-at-id (bop x e e₁) = cong₂ (bop x) (sub-at-id e) (sub-at-id e₁)
+  sub-at-id (mop x e) = cong (mop x) (sub-at-id e)
+  sub-at-id (sop x e e₁) = cong₂ (sop x) (sub-at-id e) (sub-at-id e₁)
+  sub-at-id (zero-but e e₁ e₂) = cong₃ zero-but (sub-at-id e) (sub-at-id e₁) (sub-at-id e₂)
   sub-at-id (let′ e e₁) = cong₂ let′ (sub-at-id e) (sub-at-id e₁)
-  -- Jairo made
-  sub-at-id (un x e) = cong (un x) (sub-at-id e)
-  -- sub-at-id (argmax pf e) = cong (argmax pf) (sub-at-id e)
 
   sub-ε : (e : E ε is) → sub e ε ≡ e
   sub-ε e = sub-at-id e
@@ -352,51 +332,23 @@ module WkSub where
   stren-∃ : (e : E Γ is) (v : ip ∈ Γ)
     → Maybe (∃ λ (z : E (Γ / v) is) → e ≡ wk (wk-/ v) z)
   stren-∃ (var x) v = map (λ (a , b) → _ , (cong var b)) (strenv-∃ v x)
-  stren-∃ zero v = just (zero , refl)
-  stren-∃ one v = just (one , refl)
-  stren-∃ (imaps e) v =
-    map (λ (a , b) → _ , (cong imaps b)) (stren-∃ e (there v))
-  stren-∃ (sels e e₁) v = do
+  stren-∃ (kop x) v = just (kop x , refl)
+  stren-∃ (uop x e) v = map (λ (a , b) → _ , (cong (uop x) b)) (stren-∃ e v)
+  stren-∃ (bop x e e₁) v = do
     (a , b) ← stren-∃ e v
     (c , d) ← stren-∃ e₁ v
-    just (_ , (cong₂ sels b d))
-  stren-∃ (imap e) v =
-    map (λ (a , b) → _ , (cong imap b)) (stren-∃ e (there v))
-  stren-∃ (sel e e₁) v = do
+    just (_ , (cong₂ (bop x) b d))
+  stren-∃ (mop x e) v =
+    map (λ (a , b) → _ , (cong (mop x) b)) (stren-∃ e (there v))
+  stren-∃ (sop x e e₁) v = do
     (a , b) ← stren-∃ e v
     (c , d) ← stren-∃ e₁ v
-    just (_ , (cong₂ sel b d))
-  stren-∃ (imapb x e) v =
-    map (λ (a , b) → _ , (cong (E.imapb x) b)) (stren-∃ e (there v))
-  stren-∃ (selb x e e₁) v = do
-    (a , b) ← stren-∃ e v
-    (c , d) ← stren-∃ e₁ v
-    just (_ , (cong₂ (E.selb x) b d))
-  stren-∃ (sum e) v =
-    map (λ (a , b) → _ , (cong E.sum b)) (stren-∃ e (there v))
+    just (_ , (cong₂ (sop x) b d))
   stren-∃ (zero-but e e₁ e₂) v = do
     (a , b) ← stren-∃ e v
     (c , d) ← stren-∃ e₁ v
     (e , f) ← stren-∃ e₂ v
     just (_ , cong₃ zero-but b d f)
-  stren-∃ (slide e x e₁ x₁) v = do
-    (a , b) ← stren-∃ e v
-    (c , d) ← stren-∃ e₁ v
-    just (_ , (cong₂ (λ f g → E.slide f x g x₁) b d))
-  stren-∃ (backslide e e₁ x x₁) v = do
-    (a , b) ← stren-∃ e v
-    (c , d) ← stren-∃ e₁ v
-    just (_ , (cong₂ (λ f g → E.backslide f g x x₁) b d))
-  stren-∃ (bin x e e₁) v = do
-    (a , b) ← stren-∃ e v
-    (c , d) ← stren-∃ e₁ v
-    just (_ , (cong₂ (bin x) b d))
-  stren-∃ (scaledown x e) v =
-    map (λ (a , b) → _ , (cong (scaledown x) b)) (stren-∃ e v)
-  stren-∃ (un x e) v =
-    map (λ (a , b) → _ , (cong (un x) b)) (stren-∃ e v)
-  -- stren-∃ (argmax pf e) v =
-  --   map (λ (a , b) → _ , (cong (argmax pf) b)) (stren-∃ e v)
   stren-∃ (let′ e e₁) v = do
     (a , b) ← stren-∃ e v
     (c , d) ← stren-∃ e₁ (there v)
@@ -408,51 +360,30 @@ module WkSub where
     (a , _) ← (stren-∃ e v)
     just a
 
-  -- Get rid of lets that do not use their arguments.
   norm-lets : E Γ is → E Γ is
-  norm-lets (var x) = (var x)
-  norm-lets zero = zero
-  norm-lets one = one
-  norm-lets (imaps e) = imaps (norm-lets e)
-  norm-lets (sels e e₁) = sels (norm-lets e) (norm-lets e₁)
-  norm-lets (imap e) = imap (norm-lets e)
-  norm-lets (sel e e₁) = sel (norm-lets e) (norm-lets e₁)
-  norm-lets (imapb x e) = imapb x (norm-lets e)
-  norm-lets (selb x e e₁) = selb x (norm-lets e) (norm-lets e₁)
-  norm-lets (sum e) = sum (norm-lets e)
-  norm-lets (zero-but e e₁ e₂) = zero-but (norm-lets e) (norm-lets e₁) (norm-lets e₂)
-  norm-lets (slide e x e₁ x₁) = slide (norm-lets e) x (norm-lets e₁) x₁
-  norm-lets (backslide e e₁ x x₁) = backslide (norm-lets e) (norm-lets e₁) x x₁
-  norm-lets (bin x e e₁) = bin x (norm-lets e) (norm-lets e₁)
-  norm-lets (scaledown x e) = scaledown x (norm-lets e)
-  norm-lets (let′ e e₁) = maybe id (let′ (norm-lets e) (norm-lets e₁)) (stren (norm-lets e₁) v₀)
-  -- Jairo made
-  norm-lets (un x e) = un x (norm-lets e)
-  -- norm-lets (argmax pf e) = argmax pf (norm-lets e)
+  norm-lets (var x) = var x
+  norm-lets (kop x) = kop x
+  norm-lets (uop x e) = uop x (norm-lets e)
+  norm-lets (bop x e e₁) = bop x (norm-lets e) (norm-lets e₁)
+  norm-lets (mop x e) = mop x (norm-lets e)
+  norm-lets (sop x e e₁) = sop x (norm-lets e) (norm-lets e₁)
+  norm-lets (zero-but e e₁ e₂) =
+    zero-but (norm-lets e) (norm-lets e₁) (norm-lets e₂)
+  norm-lets (let′ e e₁) =
+    maybe id (let′ (norm-lets e) (norm-lets e₁)) (stren (norm-lets e₁) v₀)
 
   count-uses : E Γ is → ip ∈ Γ → ℕ
   count-uses (var x) v with eq? x v
   ... | veq = 1
   ... | _ = 0
-  count-uses zero v = 0
-  count-uses one v = 0
-  count-uses (imaps e) v = count-uses e (there v)
-  count-uses (sels e e₁) v = count-uses e v + count-uses e₁ v
-  count-uses (imap e) v = count-uses e (there v)
-  count-uses (sel e e₁) v = count-uses e v + count-uses e₁ v
-  count-uses (imapb x e) v = count-uses e (there v)
-  count-uses (selb x e e₁) v = count-uses e v + count-uses e₁ v
-  count-uses (sum e) v = count-uses e (there v)
-  count-uses (zero-but e e₁ e₂) v = count-uses e v + count-uses e₁ v + count-uses e₂ v
-  count-uses (slide e x e₁ x₁) v = count-uses e v + count-uses e₁ v
-  count-uses (backslide e e₁ x x₁) v = count-uses e v + count-uses e₁ v
-  count-uses (bin x e e₁) v = count-uses e v + count-uses e₁ v
-  count-uses (scaledown x e) v = count-uses e v
+  count-uses (kop x) v = 0
+  count-uses (uop x e) v = count-uses e v
+  count-uses (bop x e e₁) v = (count-uses e v) + (count-uses e₁ v)
+  count-uses (mop x e) v = count-uses e (there v)
+  count-uses (sop x e e₁) v = count-uses e v + count-uses e₁ v
+  count-uses (zero-but e e₁ e₂) v =
+    count-uses e v + count-uses e₁ v + count-uses e₂ v
   count-uses (let′ e e₁) v = count-uses e v + count-uses e₁ (there v)
-  -- Jairo made
-  count-uses (un x e) v = count-uses e v
-  -- count-uses (argmax pf e) v = count-uses e v -- Is this correct?
-
 
 module Syntax where
   open import Data.List as L using (List; []; _∷_)
@@ -555,8 +486,8 @@ module Primitives where
   open import Data.List as L using (List; []; _∷_)
   open import Data.Nat as ℕ using (ℕ; zero; suc)
   open import Function using (_$_; it; _∋_)
-  open import Relation.Binary.PropositionalEquality
-  open import Ar hiding (slide; selb; swap; sum)
+  open import Relation.Binary.PropositionalEquality hiding ([_])
+  open import Ar hiding (map; K; slide; selb; swap; sum)
   open Syntax
   open WkSub
 
@@ -570,285 +501,299 @@ module Primitives where
   ⟨_⟩ : E Γ is → GE Γ is
   ⟨_⟩ t {Δ} ⦃ p ⦄ = wkp p t
 
-  module Cnn where
-
-    conv : ∀ {Γ} → E Γ (ar r) → ⦃ s + p ≈ r ⦄ → E Γ (ar s) → ⦃ suc p ≈ u ⦄
-        → E Γ (ar u)
-    conv f ⦃ s+p ⦄ g ⦃ ss ⦄
-      = Sum λ i → (slide i s+p ⟨ f ⟩ ss) ⊠ Imaps λ j → sels ⟨ g ⟩ i
-
-    mconv : ⦃ s + p ≈ r ⦄ → (inp : E Γ (ar r)) (ws : E Γ (ar (u ⊗ s)))
-            (bᵥ : E Γ (ar u)) → ⦃ suc p ≈ w ⦄ → E Γ (ar (u ⊗ w))
-    mconv ⦃ sp ⦄ inp wᵥ bᵥ ⦃ su ⦄ =
-      Imap λ i → conv ⟨ inp ⟩ (sel ⟨ wᵥ ⟩ i) ⊞ Imaps λ _ → sels ⟨ bᵥ ⟩ i
-
-    avgp₂ : ∀ m n → (a : E Γ (ar (m ℕ.* 2 ∷ n ℕ.* 2 ∷ [])))
-          → E Γ (ar (m ∷ n ∷ []))
-    avgp₂ m n a =
-      Imaps λ i → scaledown 4 $ Sum λ j → sels (selb it ⟨ a ⟩ i) j
-
-    sqerr : (r o : E Γ (ar [])) → E Γ (ar [])
-    sqerr r o = scaledown 2 ((r ⊞ (⊟_ o)) ⊠ (r ⊞ (⊟_ o)))
-
-    meansqerr : (r o : E Γ (ar s)) → E Γ (ar [])
-    meansqerr r o = Sum λ i → sqerr (sels ⟨ r ⟩ i) (sels ⟨ o ⟩ i)
-
-    cnn : E _ _
-    cnn = Lcon (  ar (28 ∷ 28 ∷ []) ∷ ar (6 ∷ 5 ∷ 5 ∷ [])
-                ∷ ar (6 ∷ [])       ∷ ar (12 ∷ 6 ∷ 5 ∷ 5 ∷ [])
-                ∷ ar (12 ∷ [])      ∷ ar (10 ∷ 12 ∷ 1 ∷ 4 ∷ 4 ∷ [])
-                ∷ ar (10 ∷ [])      ∷ ar (10 ∷ 1 ∷ 1 ∷ 1 ∷ 1 ∷ [])
-                -- ∷ ar (10 ∷ 1 ∷ 1 ∷ 1 ∷ 1 ∷ [])
-                ∷ [])
-              -- (ar (10 ∷ 1 ∷ 1 ∷ 1 ∷ 1 ∷ [])) ε
-              (ar ([])) ε
-          λ inp k₁ b₁ k₂ b₂ fc b target →
-          Let c₁₁ := mconv inp k₁ b₁  In
-          Let c₁  := logi c₁₁ In
-          Let s₁  := (Imap {s = 6 ∷ []} λ i → avgp₂ 12 12 (sel c₁ i)) In
-          Let c₂₁ := mconv s₁ k₂ b₂ In
-          Let c₂  := logi c₂₁ In
-          Let s₂  := (Imap {s = 12 ∷ 1 ∷ []} λ i → avgp₂ 4 4 (sel c₂ i)) In
-          Let o₁  := mconv s₂ fc b In
-          Let o   := logi o₁ In
-          -- Mean squared error
-          Let e   := meansqerr target o In
-          e
-
   module Microgpt where
 
-    open import Data.Product as Prod hiding (_<*>_)
+    open import Data.Product as Prod hiding (map; _<*>_)
     open import Data.List.Properties
 
     variable
-      ah hd ed sl vo pr fd : S
+      ed : S
+      ah hd sl vo pr fd bs : S
 
-    tiles : ∀ {Γ} → E Γ (ar []) → E Γ (ar s)
-    tiles x = Imaps (λ _ → ⟨ x ⟩)
+    Ks : ∀ {Γ} → E Γ $ ar [] → E Γ $ ar s
+    Ks x = Imaps (λ _ → ⟨ x ⟩)
 
-    tile : ∀ {Γ} → E Γ (ar s) → E Γ (ar (p ⊗ s))
-    tile x = Imap (λ _ → ⟨ x ⟩)
+    K : ∀ {Γ s} → E Γ $ ar s → E Γ $ ar $ p ⊗ s
+    K x = Imap (λ _ → ⟨ x ⟩)
 
-    iswap : ∀ {Γ} → E Γ (ar (s ⊗ u)) → E Γ (ar (u ⊗ s))
-    iswap {s} {u} x = Imap {u} λ i → Imaps {s} λ j → sels (sel ⟨ x ⟩ j) i
+    map : ∀ {Γ} → (E (Γ ▹ ix p) $ ar s → E (Γ ▹ ix p) $ ar q)
+      → E Γ $ ar $ p ⊗ s → E Γ $ ar $ p ⊗ q
+    map {p} f e = Imap {p} λ i → f (sel ⟨ e ⟩ i)
 
-    iswap3 : ∀ {Γ} → E Γ (ar (p ⊗ (s ⊗ u))) → E Γ (ar (s ⊗ (p ⊗ u)))
-    iswap3 {p} {s} {u} x = Imap {s} λ i → Imap {p} λ j → sel (sel ⟨ x ⟩ j) i
+    zipwith : ∀ {Γ}
+      → (E (Γ ▹ ix p) $ ar s → E (Γ ▹ ix p) $ ar q → E (Γ ▹ ix p) $ ar r)
+      → E Γ $ ar $ p ⊗ s → E Γ $ ar $ p ⊗ q → E Γ $ ar $ p ⊗ r
+    zipwith {p} f a b = Imap {p} λ i → f (sel ⟨ a ⟩ i) (sel ⟨ b ⟩ i)
 
-    linear : ∀ {Γ} → E Γ (ar (u ⊗ s)) → E Γ (ar s) → E Γ (ar u)
-    linear {u} {s} w x =
-      Imaps {u} λ i → Sum {s} λ j → sels (sel ⟨ w ⟩ i ⊠ ⟨ x ⟩) j
-      -- Imaps {u} λ i → Sum {s} λ j → sels (sel ⟨ w ⟩ i) j ⊠ sels ⟨ x ⟩ j
+    zipwith₃ : ∀ {Γ}
+      → (E (Γ ▹ ix p) $ ar s → E (Γ ▹ ix p) $ ar q
+        → E (Γ ▹ ix p) $ ar r → E (Γ ▹ ix p) $ ar w)
+      → E Γ $ ar $ p ⊗ s → E Γ $ ar $ p ⊗ q → E Γ $ ar $ p ⊗ r
+      → E Γ $ ar $ p ⊗ w
+    zipwith₃ {p} f a b c =
+      Imap {p} λ i → f (sel ⟨ a ⟩ i) (sel ⟨ b ⟩ i) (sel ⟨ c ⟩ i)
 
-    m-linear : ∀ {Γ} → E Γ (ar (u ⊗ s)) → E Γ (ar (p ⊗ s)) → E Γ (ar (p ⊗ u))
-    m-linear {u} {s} {p} w xs = Imap {p} λ i → linear ⟨ w ⟩ (sel ⟨ xs ⟩ i)
+    tr : ∀ {Γ} → E Γ $ ar $ (s ⊗ p) → E Γ $ ar $ (p ⊗ s)
+    tr {s} {p} e = Imap {p} λ i → Imaps λ j → sels (sel ⟨ e ⟩ j) i
 
-    matmult : ∀ {Γ} → E Γ (ar (u ⊗ s)) → E Γ (ar (r ⊗ s)) → E Γ (ar (u ⊗ r))
-    matmult {u} {s} {r} w1 w2 =
-      Imap {u} λ i → Imaps {r} λ j → Sum {s} λ k →
-      sels ((sel ⟨ w1 ⟩ i) ⊠ (sel ⟨ w2 ⟩ j)) k
+    trₗ : ∀ {Γ} → E Γ (ar (p ⊗ (s ⊗ u))) → E Γ (ar (s ⊗ (p ⊗ u)))
+    trₗ {p} {s} {u} x = Imap {s} λ i → Imap {p} λ j → sel (sel ⟨ x ⟩ j) i
+
+    linear : ∀ {Γ} → E Γ $ ar $ p ⊗ s → E Γ $ ar p → E Γ $ ar s → E Γ $ ar p
+    linear {s = s} w b x =
+      (Imaps λ i → Sum {s} λ j → sels (sel ⟨ w ⟩ i) j ⊠ (sels ⟨ x ⟩ j)) ⊞ b
+
+    linear₃ : ∀ {Γ} → E Γ $ ar $ p ⊗ (s ⊗ q) → E Γ $ ar p → E Γ $ ar (s ⊗ q)
+      → E Γ $ ar p
+    linear₃ {s} {p} {q} w b x = (Imaps λ i → Sum {p} λ j → Sum {q} λ k →
+      sels (sel (sel ⟨ w ⟩ i) j) k ⊠ sels (sel ⟨ x ⟩ j) k) ⊞ b
 
     matmul : ∀ {Γ} → E Γ (ar (u ⊗ s)) → E Γ (ar (s ⊗ r)) → E Γ (ar (u ⊗ r))
     matmul {u} {s} {r} w1 w2 =
       Imap {u} λ i → Imaps {r} λ j → Sum {s} λ k →
       sels (sel ⟨ w1 ⟩ i) k ⊠ sels (sel ⟨ w2 ⟩ k) j
 
-    m-softmax : ∀ {Γ} → E Γ (ar (s ⊗ p)) → E Γ (ar (s ⊗ p))
-    m-softmax {s = s} {p = p} x =
-      Imap {s = s} λ i → ℙ (sel ⟨ x ⟩ i)
+    matmult : ∀ {Γ} → E Γ (ar (u ⊗ s)) → E Γ (ar (r ⊗ s)) → E Γ (ar (u ⊗ r))
+    matmult {u} {s} {r} w1 w2 =
+      Imap {u} λ i → Imaps {r} λ j → Sum {s} λ k →
+      sels ((sel ⟨ w1 ⟩ i) ⊠ (sel ⟨ w2 ⟩ j)) k
 
     rmsnorm : ∀ {Γ} → E Γ (ar s) → E Γ (ar s)
     rmsnorm {s = s} x =
       Let xx := x ⊠ x In
       Let ms := scaledown (len s) (Sum (λ i → sels xx i)) In
-      Let scale := sqrt (ms ⊞ (scaledown 100000 one)) In
+      Let scale := √ (ms ⊞ (scaledown 100000 𝟙)) In
       Imaps λ i → (sels ⟨ x ⟩ i) // scale
 
     m-rmsnorm : ∀ {Γ} → E Γ (ar (s ⊗ p)) → E Γ (ar (s ⊗ p))
     m-rmsnorm {s} {p} {Γ} x = Imap {s} λ i → rmsnorm (sel ⟨ x ⟩ i)
 
+    split : s * p ≈ r → E Γ $ ar $ r → E Γ $ ar $ s ⊗ p
+    split {s} eq x = Imap {s} λ i → selb eq ⟨ x ⟩ i
+
+    cat : s * p ≈ r → E Γ $ ar $ s ⊗ p → E Γ $ ar $ r
+    cat eq x = Imapb eq λ i → sel ⟨ x ⟩ i
+
+    -- cross-entropy : ∀ {Γ} (y probs : E Γ (ar s)) → (E Γ (ar s))
+    -- cross-entropy y probs = ⊟ (y ⊠ ln probs)
+
+    cross-entropy : ∀ {Γ} (target logits : E Γ (ar s)) → (E Γ (ar []))
+    cross-entropy {s} target probs =
+      (⊟ (Sum λ i → sels (ln ⟨ probs ⟩) i ⊠ sels ⟨ target ⟩ i))
+
     avg : ∀ {Γ} → E Γ (ar s) → E Γ (ar [])
     avg {s} x = scaledown (len s) (Sum λ i → sels ⟨ x ⟩ i)
 
-    record GPT-Params (Γ : Ctx) (vo ed sl fd : S) : Set₁ where
+    record GPTW (Γ : Ctx) (sl ed ah hd fd vo : S) : Set₁ where
+      constructor gptw
       field
         -- position embedding
-        wpe : E Γ (ar (sl ⊗ ed))
-        -- weights for queries, keys, values and outputs
-        wqry wkey wval wout : E Γ (ar (ed ⊗ ed))
-        -- up-projection
-        wup : E Γ (ar (fd ⊗ ed))
+        wp : E Γ $ ar $ sl ⊗ ed
+        -- the embedding dimension matches the number of heads
+        att-eq : ah * hd ≈ ed
+        -- weights for queries, keys, values and output projection
+        wkey wqry wval : E Γ $ ar $ ed ⊗ ed
+        wo : E Γ $ ar $ ed ⊗ ed
+        -- attn and padding mask
+        mask : E Γ $ ar $ sl ⊗ sl
+        -- up projection
+        wu : E Γ $ ar $ fd ⊗ ed
         -- down projection
-        wdown : E Γ (ar (ed ⊗ fd))
+        wd : E Γ $ ar $ ed ⊗ fd
         -- output projection into vocabulary size
-        wvoc : E Γ (ar (vo ⊗ ed))
+        wc : E Γ $ ar $ vo ⊗ ed
+    open GPTW
 
-    open GPT-Params
-
-    to-gptp : ∀ {Γ}
-              (wpe : E Γ (ar (sl ⊗ ed)))
-              (wqry wkey wval wout : E Γ (ar (ed ⊗ ed)) )
-              (wup : E Γ (ar (fd ⊗ ed)))
-              (wdown : E Γ (ar (ed ⊗ fd)))
-              (wvoc : E Γ (ar (vo ⊗ ed)))
-              → GPT-Params Γ vo ed sl fd
-    to-gptp wpe wqry wkey wval wout wup wdown wvoc = record
-      { wpe = wpe
-      ; wqry = wqry
-      ; wkey = wkey
-      ; wval = wval
-      ; wout = wout
-      ; wup = wup
-      ; wdown = wdown
-      ; wvoc = wvoc
+    wk-gptp : Prefix Γ Δ → GPTW Γ sl ed ah hd fd vo → GPTW Δ sl ed ah hd fd vo
+    wk-gptp pr p = record
+      { wp = wk (fromPrefix pr) (p .wp)
+      ; att-eq = p .att-eq
+      ; wqry = wk (fromPrefix pr) (p .wqry)
+      ; wkey = wk (fromPrefix pr) (p .wkey)
+      ; wval = wk (fromPrefix pr) (p .wval)
+      ; wo = wk (fromPrefix pr) (p .wo)
+      ; mask = wk (fromPrefix pr) (p .mask)
+      ; wu = wk (fromPrefix pr) (p .wu)
+      ; wd = wk (fromPrefix pr) (p .wd)
+      ; wc = wk (fromPrefix pr) (p .wc)
       }
 
-    attention : ∀ {Γ} → (sc : ℕ) →
-                   (mask : E Γ (ar (sl ⊗ sl)))
-                   (qs ks vs : E Γ (ar (sl ⊗ hd)))
-                  → E Γ (ar (sl ⊗ hd))
-    attention {sl} {hd} {Γ} sc mask hqs hks hvs =
-      Let hqks := matmult {sl} hqs hks In
-      Let masked := (scaledown sc hqks) ⊞ ⟨ mask ⟩ In
-      Let sf := m-softmax {s = sl} (masked) In
-      matmul {sl} sf ⟨ hvs ⟩
+    G-GPTW : Ctx → S → S → S → S → S → S → Set₁
+    G-GPTW Γ sl ed ah hd fd vo =
+      ∀ {Δ} → ⦃ Prefix Γ Δ ⦄ → GPTW Δ sl ed ah hd fd vo
 
-    mh-attention : ∀ {Γ} → (sc : ℕ)
-                   (mask : E Γ (ar (sl ⊗ sl)))
-                   (qs ks vs : E Γ (ar (ah ⊗ (sl ⊗ hd))))
-                   → E Γ (ar (ah ⊗ (sl ⊗ hd)))
-    mh-attention {sl} {ah} {hd} {Γ} sc mask bqs bks bvs =
-      Imap {ah} λ i →
-      attention {sl = sl} sc ⟨ mask ⟩ (sel ⟨ bqs ⟩ i) (sel ⟨ bks ⟩ i) (sel ⟨ bvs ⟩ i)
+    ⟨_⟩ʷ : GPTW Γ sl ed ah hd fd vo → G-GPTW Γ sl ed ah hd fd vo
+    ⟨_⟩ʷ p {Δ} ⦃ pf ⦄  = wk-gptp pf p
 
-    block-tok : ∀ {Γ} → E Γ (ar ed) → ah * hd ≈ ed → E Γ (ar (ah ⊗ hd))
-    block-tok {ed} {ah} {hd} {Γ} x pr = Imap {ah} λ i → selb pr ⟨ x ⟩ i
+    attn : ∀ {Γ} → (sc : ℕ) →
+                  (mask : E Γ (ar (sl ⊗ sl)))
+                  (qs ks vs : E Γ (ar (sl ⊗ hd)))
+                → E Γ (ar (sl ⊗ hd))
+    attn {sl} {hd} {Γ} sc mask hq hk hv =
+      Let scores := map {sl} ℙ (scaledown sc (matmult {sl} hq hk) ⊞ ⟨ mask ⟩) In
+      matmul {sl} scores ⟨ hv ⟩
 
-    unblock-tok : ∀ {Γ} → E Γ (ar (ah ⊗ hd)) → ah * hd ≈ ed → E Γ (ar ed)
-    unblock-tok {ah} {hd} {ed} {Γ} x pr = Imapb pr λ i → sel ⟨ x ⟩ i
+    bgpt-forward : ∀ {Γ} (sc : ℕ)
+                → GPTW Γ sl ed ah hd fd vo
+                → E Γ $ ar $ bs ⊗ (sl ⊗ ed)
+                → E Γ $ ar $ bs ⊗ (sl ⊗ vo)
+    bgpt-forward {sl} {ed} {ah} {hd} {fd} {vo} {bs} sc θ ws =
+      Let wj := map {bs} (⟨ θ .wp ⟩ ⊞_) ws In
+      Let x₀ := map {bs} (m-rmsnorm {sl}) wj In
+      Let x₁ := map {bs} (m-rmsnorm {sl}) x₀ In
+      Let q  := map {bs} (map {sl} (linear ⟨ θ .wqry ⟩ 𝟘)) x₁ In
+      Let k  := map {bs} (map {sl} (linear ⟨ θ .wkey ⟩ 𝟘)) x₁ In
+      Let v  := map {bs} (map {sl} (linear ⟨ θ .wval ⟩ 𝟘)) x₁ In
+      Let bq  := map {bs} (map {sl} (split (θ .att-eq))) q In
+      Let bk  := map {bs} (map {sl} (split (θ .att-eq))) k In
+      Let bv  := map {bs} (map {sl} (split (θ .att-eq))) v In
+      Let sq  := map {bs} (trₗ {sl} {ah}) bq In
+      Let sk  := map {bs} (trₗ {sl} {ah}) bk In
+      Let sv  := map {bs} (trₗ {sl} {ah}) bv In
+      Let sattn := zipwith₃ {bs} (zipwith₃ {ah} (attn {sl} sc ⟨ θ .mask ⟩)) sq sk sv In
+      Let battn := map {bs} (trₗ {ah} {sl}) sattn In
+      Let attn := map {bs} (map {sl} $ cat (θ .att-eq)) battn In
+      Let out := map {bs} (map {sl} (linear ⟨ θ .wo ⟩ 𝟘)) attn In
+      Let x₂ := x₀ ⊞ out In
+      Let x₃ := map {bs} (m-rmsnorm {sl}) x₂ In
+      Let up := map {bs} (map {sl} (linear ⟨ θ .wu ⟩ 𝟘)) x₃ In
+      Let rl := relu up In
+      Let down := map {bs} (map {sl} (linear ⟨ θ .wd ⟩ 𝟘)) rl In
+      Let x₄ := x₂ ⊞ down In
+      map {bs} (map {sl} (linear ⟨ θ .wc ⟩ 𝟘)) x₄
 
-    block-vec : ∀ {Γ} → E Γ (ar (sl ⊗ ed)) → ah * hd ≈ ed
-                → E Γ (ar (ah ⊗ (sl ⊗ hd)))
-    block-vec {sl} {ed} {ah} x pr =
-      iswap3 {sl} {ah} (Imap {sl} λ i → block-tok (sel ⟨ x ⟩ i) pr)
+    bgpt-loss : ∀ {Γ} (sc : ℕ)
+                → GPTW Γ sl ed ah hd fd vo
+                → E Γ $ ar $ bs ⊗ (sl ⊗ ed)
+                → E Γ $ ar $ bs ⊗ (sl ⊗ vo)
+                → E Γ $ ar $ []
+    bgpt-loss {sl} {ed} {ah} {hd} {fd} {vo} {bs} sc θ ws target =
+      Let logits := bgpt-forward {bs = bs} sc θ ws In
+      Let l := ⟨ target ⟩ ⊠ map {bs} (map {sl} λ x → ⊟ (ln (ℙ x))) logits In
+      scaledown (len sl ℕ.* len bs) (Sum λ i → (sels l i))
 
-    unblock-vec : ∀ {Γ} → E Γ (ar (ah ⊗ (sl ⊗ hd))) → ah * hd ≈ ed
-      → E Γ (ar (sl ⊗ ed))
-    unblock-vec {ah} {sl} {hd} {ed} {Γ} x pr = Imap {sl} λ i →
-      unblock-tok (sel (iswap3 {ah} {sl} ⟨ x ⟩) i) pr
-
-    mgpt-forward : ∀ {ah hd : S} {Γ} (sc : ℕ) (mask : E Γ (ar (sl ⊗ sl)))
-                   (p : GPT-Params Γ vo ed sl fd) (wseq : E Γ (ar (sl ⊗ ed)))
-                   → ah * hd ≈ ed → E Γ (ar (sl ⊗ vo))
-    mgpt-forward {sl} {vo} {ed} {fd} {ah} {hd} {Γ} sc mask p wseq pr =
-      Let wpe-wseq := (p .wpe) ⊞ wseq In
-      Let seq := m-rmsnorm {sl} wpe-wseq In
-      -- layer pass
-      Let nseq := m-rmsnorm {sl} seq In
-        -- attention block
-      Let qs := m-linear {u = ed} ⟨ p .wqry ⟩ nseq In
-      Let ks := m-linear {u = ed} ⟨ p .wkey ⟩ nseq In
-      Let vs := m-linear {u = ed} ⟨ p .wval ⟩ nseq In
-      Let bqs := block-vec qs pr In
-      Let bks := block-vec ks pr In
-      Let bvs := block-vec vs pr In
-      Let battn := mh-attention {sl} {ah} sc ⟨ mask ⟩ bqs bks bvs In
-      Let attn := unblock-vec battn pr In
-      Let oseq := m-linear {u = ed} {p = sl} ⟨ p .wout ⟩ attn In
-      Let cseq := oseq ⊞ seq In
-        -- mlp block
-      Let nseq2 := m-rmsnorm {sl} cseq In
-      Let useq := m-linear {p = sl} ⟨ p .wup ⟩ nseq2 In
-      Let aseq := relu useq In
-      Let dseq := m-linear {u = ed} {p = sl} ⟨ p .wdown ⟩ aseq In
-      Let lseq := dseq ⊞ cseq In
-      -- build logits
-      --Let logits := m-linear {u = vo} {p = sl} ⟨ p .wvoc ⟩ lseq In logits
-      m-linear {u = vo} {p = sl} ⟨ p .wvoc ⟩ lseq
-
-    cross-entropy : ∀ {Γ} (logits target : E Γ (ar s)) → (E Γ (ar []))
-    cross-entropy {s} logits target =
-      Let lnsf := ln (ℙ logits) In
-      (⊟ (Sum λ i → sels lnsf i ⊠ sels ⟨ target ⟩ i))
-
-    m-cross-entropy : ∀ {Γ} (logits target : E Γ (ar (s ⊗ p))) → (E Γ (ar s))
-    m-cross-entropy {s} {p} logits target =
-      Imaps λ i → cross-entropy {p} (sel ⟨ logits ⟩ i) (sel ⟨ target ⟩ i)
-
-    mgpt-loss : ∀ {ah hd : S} {Γ} (sc : ℕ) (mask : E Γ (ar (sl ⊗ sl)))
-                   (p : GPT-Params Γ vo ed sl fd) (wseq : E Γ (ar (sl ⊗ ed)))
-                   (target : E Γ (ar (sl ⊗ vo))) → ah * hd ≈ ed → E Γ (ar [])
-    mgpt-loss {sl = sl} {vo = vo} {ed = ed} {ah = ah} sc mask p wseq target eq1 =
-
-      Let wpe-wseq := (p .wpe) ⊞ wseq In
-      Let seq := m-rmsnorm {sl} wpe-wseq In
-      -- layer pass
-      Let nseq := m-rmsnorm {sl} seq In
-        -- attention block
-      Let qs := m-linear {u = ed} ⟨ p .wqry ⟩ nseq In
-      Let ks := m-linear {u = ed} ⟨ p .wkey ⟩ nseq In
-      Let vs := m-linear {u = ed} ⟨ p .wval ⟩ nseq In
-      Let bqs := block-vec qs eq1 In
-      Let bks := block-vec ks eq1 In
-      Let bvs := block-vec vs eq1 In
-      Let battn := mh-attention {sl} {ah} sc ⟨ mask ⟩ bqs bks bvs In
-      Let attn := unblock-vec battn eq1 In
-      Let oseq := m-linear {u = ed} {p = sl} ⟨ p .wout ⟩ attn In
-      Let cseq := oseq ⊞ seq In
-        -- mlp block
-      Let nseq2 := m-rmsnorm {sl} cseq In
-      Let useq := m-linear {p = sl} ⟨ p .wup ⟩ nseq2 In
-      Let aseq := relu useq In
-      Let dseq := m-linear {u = ed} {p = sl} ⟨ p .wdown ⟩ aseq In
-      Let lseq := dseq ⊞ cseq In
-      -- build logits
-      Let logits := m-linear {u = vo} {p = sl} ⟨ p .wvoc ⟩ lseq In
-      -- calculate losses
-      Let losses := m-cross-entropy {sl} logits ⟨ target ⟩ In
-      -- average loss
-      --Let loss := avg losses In loss
-      avg losses
-
-    ED = ι 16 ; AH = ι 4 ; HD = ι 4 ; SL = ι 16 ; FD = ι 64 ; SC = 2 ; VO = ι 27
+    AH = [ 4 ] ; HD = [ 4 ] ; SL = [ 16 ] ; FD = [ 64 ] ; SC = 2
+    VO = [ 27 ] ; BS = [ 5 ] ; ED = [ 16 ]
 
     PR : AH * HD ≈ ED
     PR = cons
 
-    PF : suc (ι 15) ≈ SL
-    PF = cons
+    bgpt-forward-e : E _ _
+    bgpt-forward-e = Lcon (
+                    ar (SL ⊗ ED) --wp
+                  ∷ ar (ED ⊗ ED) --wkey
+                  ∷ ar (ED ⊗ ED) --wqry
+                  ∷ ar (ED ⊗ ED) --wval
+                  ∷ ar (ED ⊗ ED) --wo
+                  ∷ ar (SL ⊗ SL) --mask
+                  ∷ ar (FD ⊗ ED) --wu
+                  ∷ ar (ED ⊗ FD) --wd
+                  ∷ ar (VO ⊗ ED) --wc
+                  ∷ ar (BS ⊗ (SL ⊗ ED)) --ws
+                  ∷ []) (ar ((BS ⊗ SL) ⊗ VO) ) ε
+                  λ wp wkey wqry wval wo mask wu wd wc ws
+                  → let θ = gptw wp PR wkey wqry wval wo mask wu wd wc in
+                    bgpt-forward {sl = SL} {vo = VO} {bs = BS} SC θ ws
 
-    rmsnorm-e : E _ _
-    rmsnorm-e = Lcon (ar (ι 5 ⊗ ι 6) ∷ []) (ar (ι 5 ⊗ ι 6)) ε (λ x → rmsnorm {s = ι 5 ⊗ ι 6} x)
+    bgpt-loss-e : E _ _
+    bgpt-loss-e = Lcon (
+                    ar (SL ⊗ ED) --wp
+                  ∷ ar (ED ⊗ ED) --wkey
+                  ∷ ar (ED ⊗ ED) --wqry
+                  ∷ ar (ED ⊗ ED) --wval
+                  ∷ ar (ED ⊗ ED) --wo
+                  ∷ ar (SL ⊗ SL) --mask
+                  ∷ ar (FD ⊗ ED) --wu
+                  ∷ ar (ED ⊗ FD) --wd
+                  ∷ ar (VO ⊗ ED) --wc
+                  ∷ ar (BS ⊗ (SL ⊗ ED)) --ws
+                  ∷ ar ((BS ⊗ SL) ⊗ VO) --target
+                  ∷ []) (ar []) ε
+                  λ wp wkey wqry wval wo mask wu wd wc ws target
+                  → let θ = gptw wp PR wkey wqry wval wo mask wu wd wc in
+                    bgpt-loss {sl = SL} {vo = VO} {bs = BS} SC θ ws target
 
-    div-e : E _ _
-    div-e = Lcon (ar (ι 6) ∷ ar (ι 6) ∷ []) (ar (ι 6)) ε (λ x y → (x ⊞ y) // (x ⊞ y))
+    -- attn : ∀ {Γ} → (sc : ℕ) →
+    --                (mask : E Γ (ar (sl ⊗ sl)))
+    --                (qs ks vs : E Γ (ar (sl ⊗ hd)))
+    --               → E Γ (ar (sl ⊗ hd))
+    -- attn {sl} {hd} {Γ} sc mask hq hk hv =
+    --   Let scores := map {sl} ℙ (scaledown sc (matmult {sl} hq hk) ⊞ ⟨ mask ⟩) In
+    --   matmul {sl} scores ⟨ hv ⟩
 
-    softmax-e : E _ _
-    softmax-e = Lcon (ar (ι 2) ∷ ar (ι 2) ∷ []) (ar (ι 2)) ε (λ i x → ℙ x)
+    -- bgpt-forward : ∀ {Γ} (sc : ℕ)
+    --             → GPTW Γ sl ed ah hd fd vo
+    --             → E Γ $ ar $ bs ⊗ (sl ⊗ ed)
+    --             → E Γ $ ar $ bs ⊗ (sl ⊗ vo)
+    -- bgpt-forward {sl} {ed} {ah} {hd} {fd} {vo} {bs} sc θ ws =
+    --   -- embeding
+    --   Let x₀ := map {bs} (m-rmsnorm {sl}) (map {bs} (⟨ θ .wp ⟩ ⊞_) ws) In
+    --   -- attention
+    --   Let x₁ := map {bs} (m-rmsnorm {sl}) x₀ In
+    --   Let q  := map {bs} (map {sl} (linear ⟨ θ .wqry ⟩ 𝟘)) x₁ In
+    --   Let k  := map {bs} (map {sl} (linear ⟨ θ .wkey ⟩ 𝟘)) x₁ In
+    --   Let v  := map {bs} (map {sl} (linear ⟨ θ .wval ⟩ 𝟘)) x₁ In
+    --   Let battn := zipwith₃ {bs} (zipwith₃ {ah} (attn {sl} sc ⟨ θ .mask ⟩))
+    --     (map {bs} (trₗ {sl} {ah}) q)
+    --     (map {bs} (trₗ {sl} {ah}) k)
+    --     (map {bs} (trₗ {sl} {ah}) v) In
+    --   Let attn := map {bs} (map {sl} $ cat (θ .att-eq))
+    --     (map {bs} (trₗ {ah} {sl}) battn) In
+    --   Let x₂ := x₀ ⊞ (map {bs} (map {sl} (linear ⟨ θ .wo ⟩ 𝟘)) attn) In
+    --   -- feed forward and logits
+    --   Let x₃ := map {bs} (m-rmsnorm {sl}) x₂ In
+    --   Let rl := relu (map {bs} (map {sl} (linear ⟨ θ .wu ⟩ 𝟘)) x₃) In
+    --   map {bs} (map {sl} (linear ⟨ θ .wc ⟩ 𝟘))
+    --     (x₂ ⊞ (map {bs} (map {sl} (linear ⟨ θ .wd ⟩ 𝟘)) rl))
 
-    test : ∀ {Γ} → E Γ (ar $ ι 5 ⊗ ι 3) → E Γ (ar $ ι 5 ⊗ ι 3)
-    test x = ℙ x
+    -- bgpt-loss : ∀ {Γ} (sc : ℕ)
+    --             → GPTW Γ sl ed ah hd fd vo
+    --             → E Γ $ ar $ bs ⊗ (sl ⊗ ed)
+    --             → E Γ $ ar $ bs ⊗ (sl ⊗ vo)
+    --             → E Γ $ ar $ []
+    -- bgpt-loss {sl} {ed} {ah} {hd} {fd} {vo} {bs} sc θ ws target =
+    --   Let logits := bgpt-forward {bs = bs} sc θ ws In
+    --   Let probs := map {bs} (map {sl} ℙ) logits In
+    --   Let cross := zipwith {bs} (zipwith {sl} cross-entropy) ⟨ target ⟩ probs In
+    --   avg cross
 
-    test-e : E _ _
-    test-e = Lcon (ar (ι 5 ⊗ ι 3) ∷ []) (ar (ι 5 ⊗ ι 3)) ε (λ x → test x)
+    -- AH = [ 4 ] ; HD = [ 4 ] ; SL = [ 16 ] ; FD = [ 64 ] ; SC = 2
+    -- VO = [ 27 ] ; BS = [ 1 ] ; ED = [ 16 ]
 
-    id-e : E _ _
-    id-e = Lcon (ar (ι 5 ⊗ ι 6) ∷ []) (ar (ι 5 ⊗ ι 6)) ε (λ x → x)
+    -- PR : AH * HD ≈ ED
+    -- PR = cons
 
-    mgpt-forward-e : E _ _
-    mgpt-forward-e = Lcon (ar (SL ⊗ SL) ∷ ar (SL ⊗ ED) ∷ ar (ED ⊗ ED) ∷
-                  ar (ED ⊗ ED) ∷ ar (ED ⊗ ED) ∷ ar (ED ⊗ ED) ∷
-                  ar (FD ⊗ ED) ∷ ar (ED ⊗ FD) ∷ ar (VO ⊗ ED) ∷
-                  ar (SL ⊗ ED) ∷ []) (ar (SL ⊗ VO)) ε
-      λ mask wpe wqry wkey wval wout wup wdown wvoc wseq  →
-        mgpt-forward {sl = SL} SC mask
-          (to-gptp wpe wqry wkey wval wout wup wdown wvoc) wseq PR
+    -- bgpt-forward-e : E _ _
+    -- bgpt-forward-e = Lcon (
+    --                 ar (SL ⊗ ED) --wp
+    --               ∷ ar ((AH ⊗ HD) ⊗ ED) --wkey
+    --               ∷ ar ((AH ⊗ HD) ⊗ ED) --wqry
+    --               ∷ ar ((AH ⊗ HD) ⊗ ED) --wval
+    --               ∷ ar (ED ⊗ ED) --wo
+    --               ∷ ar (SL ⊗ SL) --mask
+    --               ∷ ar (FD ⊗ ED) --wu
+    --               ∷ ar (ED ⊗ FD) --wd
+    --               ∷ ar (VO ⊗ ED) --wc
+    --               ∷ ar (BS ⊗ (SL ⊗ ED)) --ws
+    --               ∷ []) (ar ((BS ⊗ SL) ⊗ VO) ) ε
+    --               λ wp wkey wqry wval wo mask wu wd wc ws
+    --               → let θ = gptw wp PR wkey wqry wval wo mask wu wd wc in
+    --                 bgpt-forward {sl = SL} {vo = VO} {bs = BS} SC θ ws
 
-    mgpt-loss-e : E _ _
-    mgpt-loss-e = Lcon (ar (SL ⊗ SL) ∷ ar (SL ⊗ ED) ∷ ar (ED ⊗ ED) ∷
-                  ar (ED ⊗ ED) ∷ ar (ED ⊗ ED) ∷ ar (ED ⊗ ED) ∷
-                  ar (FD ⊗ ED) ∷ ar (ED ⊗ FD) ∷ ar (VO ⊗ ED) ∷
-                  ar (SL ⊗ ED) ∷ ar (SL ⊗ VO) ∷ []) (ar []) ε
-      λ mask wpe wqry wkey wval wout wup wdown wvoc wseq target →
-        mgpt-loss {sl = SL} SC mask
-          (to-gptp wpe wqry wkey wval wout wup wdown wvoc) wseq target PR
+    -- bgpt-loss-e : E _ _
+    -- bgpt-loss-e = Lcon (
+    --                 ar (SL ⊗ ED) --wp
+    --               ∷ ar ((AH ⊗ HD) ⊗ ED) --wkey
+    --               ∷ ar ((AH ⊗ HD) ⊗ ED) --wqry
+    --               ∷ ar ((AH ⊗ HD) ⊗ ED) --wval
+    --               ∷ ar (ED ⊗ ED) --wo
+    --               ∷ ar (SL ⊗ SL) --mask
+    --               ∷ ar (FD ⊗ ED) --wu
+    --               ∷ ar (ED ⊗ FD) --wd
+    --               ∷ ar (VO ⊗ ED) --wc
+    --               ∷ ar (BS ⊗ (SL ⊗ ED)) --ws
+    --               ∷ ar ((BS ⊗ SL) ⊗ VO) --target
+    --               ∷ []) (ar []) ε
+    --               λ wp wkey wqry wval wo mask wu wd wc ws target
+    --               → let θ = gptw wp PR wkey wqry wval wo mask wu wd wc in
+    --                 bgpt-loss {sl = SL} {vo = VO} {bs = BS} SC θ ws target

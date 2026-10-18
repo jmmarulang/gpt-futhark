@@ -7,14 +7,11 @@ open Extract
 open import Data.String
 open import Lang
 open import IO
+open import Data.Bool
+open import Relation.Binary.PropositionalEquality
 
 main : Main
--- main = run (putStrLn imap-sum-zerobut-s)
--- main = run (putStrLn Extract.unblock-tok-s)
--- main = run (putStrLn Extract.mgpt-forward-s)
-main = run (putStrLn Extract.mgpt-loss-s)
--- main = run (putStrLn grad-mgpt-loss-s)
--- main = run (putStrLn grad-mgpt-loss-pp)
--- main = run (putStrLn grad-rmsnorm-s)
--- main = run (putStrLn grad-rmsnorm-pp)
--- main = run (putStrLn Extract.grad-cnn-s)
+-- main = run (putStrLn Extract.bgpt-forward-s)
+-- main = run (putStrLn Extract.bgpt-loss-s)
+main = run (putStrLn grad-bgpt-loss-s)
+-- main = run (putStrLn grad-bgpt-loss-pp)
