@@ -36,7 +36,7 @@ vocab = uchars + [bos]
 
 # Initialize the parameters, to store the knowledge of the model
 matrix_type = 'rand'
-steps = 100
+steps = 1000
 bs = 5
 iters = bs * steps
 ed = 16     # width of the network (embedding dimension)
@@ -149,6 +149,8 @@ cau_mask = (ones - np.tril(ones))
 
 print("Training Torch")
 
+nbatch = np.zeros((bs, sl -1)).astype(np.int64, copy=False)
+ntarget = np.zeros((bs, sl -1)).astype(np.int64, copy=False)
 torch_losses = np.zeros((steps)).astype(np.float64)
 
 torch_model.train()
@@ -156,19 +158,14 @@ start = time.time()
 index = 0
 n = sl - 1
 for step in range(steps):
-    # print("batch", step)
-    # print(optimizer.param_groups[0]['lr'])
-    batch = []
-    target = []
     for i in range(bs):
         doc = docs[index % len(docs)]; index += 1
-        # print(doc)
         tokens = [vocab.index(ch) for ch in doc]
-        batch.append(tokens[:n])
-        target.append(tokens[1:n+1])
+        nbatch[i] = tokens[:n]
+        ntarget[i] = tokens[1:n+1]
 
-    batch = torch.tensor(batch, dtype=torch.long)
-    target = torch.tensor(target, dtype=torch.long)
+    batch = torch.tensor(nbatch, dtype=torch.long)
+    target = torch.tensor(ntarget, dtype=torch.long)
 
     logits, loss = torch_model(batch, target)
 
@@ -240,19 +237,6 @@ try:
 except :
     print("It refused")
 
-# # # # # -------------------------------------
-# # # TRAINING PY
-
-# print("Training Python")
-
-# start = time.time()
-# python_losses = mp.train(docs, vocab, BOS, iters, pwdic)
-# end = time.time()
-
-# print("python training time", end - start)
-# print("python final loss", python_losses[-1])
-
-
 #-------------------------------------
 # PROBS
 
@@ -298,8 +282,6 @@ with futhark_server.Server(futhark) as server:
 # futhark_probs = np.array([softmax(logits) for logits in futhark_logits])
 # futhark_probs = futhark_probs[: dl]
 
-# python_loss = python_loss.data
-
 #### Torch
 n = sl - 1
 torch_target = torch_tokens[:,1:n+1]
@@ -311,12 +293,11 @@ with torch.no_grad():
 torch_logits = torch_logits.numpy()
 torch_loss = torch_loss.numpy()
 # torch_probs = np.array([softmax(logits) for logits in torch_logits])
-
-# # # Python
-# python_logits, python_loss = mp.forward_seq(python_tokens, pwdic)
-# python_logits = np.array([[val.data for val in logits] for logits in python_logits])
 #-------------------------------------
 # TESTS
+
+print("futhark loss", futhark_loss)
+print("torch   loss", torch_loss)
 
 # #-------------------------------------
 # # PLOTS
@@ -369,14 +350,12 @@ while True:
 
     barWidth = 0.25
     futhark_data = futhark_logits[bindex, pindex]
-    # python_data = python_logits[index]
     torch_data = torch_logits[bindex, pindex]
 
     br1 = np.arange(len(torch_data))
     br2 = [x + barWidth for x in br1]
     br3 = [x + barWidth for x in br2]
     plt.bar(br1, futhark_data, width=barWidth, label="futhark")
-    # plt.bar(br2, python_data, width=barWidth, label="python")
     plt.bar(br2, torch_data, width=barWidth, label="torch")
     plt.xticks([r + barWidth for r in range(len(torch_data))], vocab)
     plt.xlabel('next token probability', fontsize = 12)
