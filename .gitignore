@@ -4,6 +4,7 @@ src/input/MNIST
 .vscode
 agda/MAlonzo
 agda/*.agdai
+agda/*.txt
 src/futhark/__pycache__
 src/figures/*
 src/*.npy
