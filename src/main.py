@@ -34,7 +34,7 @@ vocab = uchars + [bos]
 
 # Initialize the parameters, to store the knowledge of the model
 matrix_type = 'rand'
-steps = 100
+steps = 50000
 bs = 5
 iters = bs * steps
 ed = 16     # width of the network (embedding dimension)
