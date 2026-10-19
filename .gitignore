@@ -12,5 +12,5 @@ src/input.txt
 src/pdwdic.txt
 src/fwdic.txt
 src/futhark/*.c
-src/futhark/microgpt
+src/*/microgpt
 src/*/__pycache__
