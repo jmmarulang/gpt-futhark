@@ -12,3 +12,5 @@ src/*.npy
 src/input.txt
 src/pdwdic.txt
 src/fwdic.txt
+src/*.c
+src/microgpt
