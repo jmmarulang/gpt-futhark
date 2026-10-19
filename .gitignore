@@ -6,11 +6,11 @@ agda/MAlonzo
 agda/*.agdai
 agda/ToFile
 agda/*.txt
-src/futhark/__pycache__
 src/figures/*
 src/*.npy
 src/input.txt
 src/pdwdic.txt
 src/fwdic.txt
-src/*.c
-src/microgpt
+src/futhark/*.c
+src/futhark/microgpt
+src/*/__pycache__
