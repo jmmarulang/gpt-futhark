@@ -106,7 +106,6 @@ class GPT(nn.Module):
             logits_flat = logits.view(B*T, C)
             targets = targets.view(B*T)
             losses = F.cross_entropy(logits_flat, targets, reduction='none')
-            # loss = loss = torch.sum(losses)
             loss = loss = torch.sum(losses)/(B * block_size)
 
         return logits, loss

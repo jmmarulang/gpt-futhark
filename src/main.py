@@ -13,14 +13,12 @@ seed = 100
 random.seed(seed)
 torch.manual_seed(seed)
 
-def softmax(logits):
-    max_val = max(val for val in logits)
-    exps = [np.exp(val - max_val) for val in logits]
-    total = np.sum(exps)
-    return [e / total for e in exps]
+def npsoftmax(x, axis=-1):
+    return np.exp(x) / np.sum(np.exp(x), axis=axis, keepdims=True)
+
+# npsoftmax = np.vectorize(_npsoftmax)
 
 futhark = "futhark/microgpt"
-# print(futhark)
 
 # Data
 file = open('input-mgpt/input.txt')
@@ -36,7 +34,7 @@ vocab = uchars + [bos]
 
 # Initialize the parameters, to store the knowledge of the model
 matrix_type = 'rand'
-steps = 1000
+steps = 100
 bs = 5
 iters = bs * steps
 ed = 16     # width of the network (embedding dimension)
@@ -116,14 +114,6 @@ for step in range(ah):
     fwdic['wval'][step*hd : hd*(step + 1)] = \
             twdict[f"blocks.0.sa_heads.heads.{step}.value.weight"]
 
-# for step in range(ah):
-#     fwdic['wqry'][step] = \
-#         twdict[f"blocks.0.sa_heads.heads.{step}.query.weight"]
-#     fwdic['wkey'][step] = \
-#         twdict[f"blocks.0.sa_heads.heads.{step}.key.weight"]
-#     fwdic['wval'][step] = \
-#             twdict[f"blocks.0.sa_heads.heads.{step}.value.weight"]
-
 pwdic['wt'] = twdict['token_embedding_table.weight']
 pwdic['wp'] = twdict['position_embedding_table.weight']
 pwdic['wo'] = twdict['blocks.0.sa_heads.proj.weight']
@@ -174,14 +164,10 @@ for step in range(steps):
     optimizer.step()
     scheduler.step()
 
-    # Danger: Not used during computation
-    torch_losses[step] = loss.detach().numpy()
-
     print(f"step {step+1:4d} / {steps:4d} | loss {loss.item():.4f}", end='\r')
 
 end = time.time()
 print("torch training time", end - start)
-
 # # -------------------------------------
 # # TRAINING FUT
 print("Training Futhark")
@@ -210,10 +196,8 @@ with futhark_server.Server(futhark) as server:
     # Tokenization
     index = 0
     for step in range(steps):
-        # print("batch", step)
         for i in range(bs):
             doc = docs[index % len(docs)]; index += 1
-            # print(doc)
             tokens = [vocab.index(ch) for ch in doc]
             batches[step][i] = tokens
     server.put_value('batches', batches)
@@ -241,7 +225,6 @@ except :
 # PROBS
 
 # input
-# doc = "wakuntchapinka"
 doc = "marulanda"
 doc = doc[:sl - 2]
 dl = len(doc) + 2
@@ -277,10 +260,8 @@ with futhark_server.Server(futhark) as server:
     server.cmd_call('loss', 'floss', 'dl', 'fparams', 'tokens', 'mask')
     futhark_logits = server.get_value('flogits')
     futhark_loss = server.get_value('floss')
-
-# futhark_logits = futhark_logits.reshape(bs*sl, vocab_size)
-# futhark_probs = np.array([softmax(logits) for logits in futhark_logits])
-# futhark_probs = futhark_probs[: dl]
+futhark_logits = futhark_logits[:,:-1]
+futhark_probs =npsoftmax(futhark_logits, 1)
 
 #### Torch
 n = sl - 1
@@ -292,7 +273,7 @@ with torch.no_grad():
     torch_logits, torch_loss = torch_model(x , y)
 torch_logits = torch_logits.numpy()
 torch_loss = torch_loss.numpy()
-# torch_probs = np.array([softmax(logits) for logits in torch_logits])
+torch_probs =npsoftmax(torch_logits, 1)
 #-------------------------------------
 # TESTS
 
@@ -302,46 +283,6 @@ print("torch   loss", torch_loss)
 # #-------------------------------------
 # # PLOTS
 
-# # plt.imshow(mask, cmap='autumn')
-
-# # plt.title("Heatmap with different color")
-# # plt.show()
-
-# # Losses
-# # last = 100
-# # n = min(last, steps)
-# # futhark_data = np.log(futhark_losses[-n:])
-# # # python_data = np.log(python_losses[-n:])
-# # torch_data = np.log(torch_losses[-last:])
-# # plt.plot(futhark_data, label="futhark")
-# # # plt.plot(python_data, '-.', label="python")
-# # plt.plot(torch_data, '--', label="torch")
-# # plt.xlabel('log losses', fontsize = 12)
-# # plt.legend()
-# # plt.savefig('figures/main_' + "".join(doc) + "_losses_" + "_seed_" + str(seed) + "_iter_" + str(steps) + "_matrix_" + str(matrix_type) +  '_.png')
-# # plt.show()
-
-# # # # loss errors
-# # data = (np.abs(futhark_losses - torch_losses))
-# # plt.plot(data)
-# # plt.xlabel('absolute error of losses', fontsize = 12)
-# # plt.locator_params(axis='x', nbins=40)
-# # plt.show()
-
-# # # # loss errors boxplot
-# # data = (np.abs(futhark_losses - torch_losses))
-# # plt.boxplot(data, showfliers=False, orientation= 'horizontal')
-# # plt.xlabel('absolute error of losses', fontsize = 12)
-# # plt.locator_params(axis='x', nbins=40)
-# # plt.show()
-
-# # # # loss ratios
-# # data = np.minimum(np.abs(futhark_losses), np.abs(torch_losses))/np.maximum(np.abs(futhark_losses), np.abs(torch_losses))
-# # plt.boxplot(data, showfliers=False, orientation= 'horizontal')
-# # plt.xlabel('ratio of losses', fontsize = 12)
-# # plt.locator_params(axis='x', nbins=40)
-# # plt.show()
-
 # #### Probs
 while True:
     bindex = int(input("batch <- "))
@@ -349,8 +290,8 @@ while True:
     pindex = int(input("position <- "))
 
     barWidth = 0.25
-    futhark_data = futhark_logits[bindex, pindex]
-    torch_data = torch_logits[bindex, pindex]
+    futhark_data = futhark_probs[bindex, pindex]
+    torch_data = torch_probs[bindex, pindex]
 
     br1 = np.arange(len(torch_data))
     br2 = [x + barWidth for x in br1]
@@ -360,5 +301,5 @@ while True:
     plt.xticks([r + barWidth for r in range(len(torch_data))], vocab)
     plt.xlabel('next token probability', fontsize = 12)
     plt.legend()
-    plt.savefig('figures/main_' + "".join(doc) + "_pindex_" + str(pindex) + "_seed_" + str(seed) + "_iter_" + str(steps) + "_matrix_" + str(matrix_type) +  '_.png')
+    # plt.savefig('figures/main_' + "".join(doc) + "_pindex_" + str(pindex) + "_seed_" + str(seed) + "_iter_" + str(steps) + "_matrix_" + str(matrix_type) +  '_.png')
     plt.show()
