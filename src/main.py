@@ -17,6 +17,7 @@ def npsoftmax(x, axis=-1):
     return np.exp(x) / np.sum(np.exp(x), axis=axis, keepdims=True)
 
 futhark = "futhark/microgpt"
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # Data
 file = open('input-mgpt/input.txt')
@@ -29,10 +30,11 @@ BOS = len(uchars)
 bos = "_"
 vocab_size = len(uchars) + 1
 vocab = uchars + [bos]
+stoi = {ch: i for i, ch in reversed(list(enumerate(vocab)))} # first occurrence wins, like vocab.index
 
 # Initialize the parameters, to store the knowledge of the model
 matrix_type = 'rand'
-steps = 10000
+steps = 1000
 bs = 5
 iters = bs * steps
 ed = 16     # width of the network (embedding dimension)
@@ -55,16 +57,30 @@ for i in range(len(docs)):
     doc = doc + (bos * (sl - dl))
     docs[i] = doc
     assert len(docs[i]) == sl
+seqs = [[stoi[ch] for ch in doc] for doc in docs]
+torch_data = torch.tensor(seqs, dtype=torch.long, device=device)
+n_docs = torch_data.shape[0]
+assert len(docs) == n_docs
 
 # -------------------------------------
 # DEFINE TORCH MODEL
+dtype = torch.float64
+use_compile = True # torch.compile with CUDA graphs (GPU only); removes per-kernel launch overhead
+log_every = 100    # printing the loss forces a GPU->CPU sync, so only do it every N steps
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-torch_model = mt.GPT().double()
-torch_model.to(device)
+
+torch_model = mt.GPT().to(device=device, dtype=dtype)
 learning_rate = 0.01
 
-optimizer = torch.optim.Adam(torch_model.parameters(), lr=learning_rate, betas=(0.85, 0.99), eps=1e-8)
-scheduler = torch.optim.lr_scheduler.LinearLR(optimizer, start_factor=1.0, end_factor=0.0, total_iters=steps)
+optimizer = torch.optim.Adam(
+    torch_model.parameters(), lr=learning_rate, betas=(0.85, 0.99), eps=1e-8,
+        fused=device.type == 'cuda')
+scheduler = torch.optim.lr_scheduler.LinearLR(
+    optimizer, start_factor=1.0, end_factor=0.0, total_iters=steps)
+
+compiled = use_compile and device.type == 'cuda'
+train_model = torch.compile(torch_model,mode='reduce-overhead', fullgraph=True)\
+    if compiled else torch_model
 
 # -------------------------------------
 # EXTRACT WEIGHTS
@@ -78,58 +94,25 @@ fdimdic = {'wt' : (vocab_size, ed), 'wp' : (sl, ed),
           'wo' : (ed, ed), 'wu' : (4 * ed, ed), 'wd' :(ed, 4 * ed),
           'wc': (vocab_size, ed)}
 
-pdimdic = {'wt' : (vocab_size, ed), 'wp' : (sl, ed),
-          'wqry' : (ed, ed), 'wkey' : (ed, ed), 'wval' : (ed, ed),
-          'wo' : (ed, ed), 'wu' : (4 * ed, ed), 'wd' :(ed, 4 * ed),
-          'wc': (vocab_size, ed)}
 fwdic = {}
 fmdic = {}
 fvdic = {}
-pwdic = {}
-pmdic = {}
-pvdic = {}
 
 for k , dim in fdimdic.items():
     fwdic[k] = np.zeros(dim)
     fmdic[k] = np.zeros(dim)
     fvdic[k] = np.zeros(dim)
 
-for k , dim in pdimdic.items():
-    pwdic[k] = np.zeros(dim)
-    pmdic[k] = np.zeros(dim)
-    pvdic[k] = np.zeros(dim)
-
-fwdic['wt'] = twdict['token_embedding_table.weight']
-fwdic['wp'] = twdict['position_embedding_table.weight']
-fwdic['wo'] = twdict['blocks.0.sa_heads.proj.weight']
-fwdic['wu'] = twdict['blocks.0.ffwd.net.0.weight']
-fwdic['wd'] = twdict['blocks.0.ffwd.net.2.weight']
-fwdic['wc'] = twdict['lm_head.weight']
-
-for step in range(ah):
-    fwdic['wqry'][step*hd : hd*(step + 1)] = \
-        twdict[f"blocks.0.sa_heads.heads.{step}.query.weight"]
-    fwdic['wkey'][step*hd : hd*(step + 1)] = \
-        twdict[f"blocks.0.sa_heads.heads.{step}.key.weight"]
-    fwdic['wval'][step*hd : hd*(step + 1)] = \
-            twdict[f"blocks.0.sa_heads.heads.{step}.value.weight"]
-
-pwdic['wt'] = twdict['token_embedding_table.weight']
-pwdic['wp'] = twdict['position_embedding_table.weight']
-pwdic['wo'] = twdict['blocks.0.sa_heads.proj.weight']
-pwdic['wu'] = twdict['blocks.0.ffwd.net.0.weight']
-pwdic['wd'] = twdict['blocks.0.ffwd.net.2.weight']
-pwdic['wc'] = twdict['lm_head.weight']
-
-for step in range(ah):
-    pwdic['wqry'][step*hd : hd*(step + 1)] = \
-        twdict[f"blocks.0.sa_heads.heads.{step}.query.weight"]
-    pwdic['wkey'][step*hd : hd*(step + 1)] = \
-        twdict[f"blocks.0.sa_heads.heads.{step}.key.weight"]
-    pwdic['wval'][step*hd : hd*(step + 1)] = \
-            twdict[f"blocks.0.sa_heads.heads.{step}.value.weight"]
-
-pwdic = {k : np.vectorize(mp.to_val)(v) for k, v in pwdic.items()}
+qkv = np.reshape(twdict['blocks.0.sa_heads.qkv.weight'], (3, ed, ed))
+fwdic['wqry'][:,:] = qkv[0]
+fwdic['wkey'][:,:] = qkv[1]
+fwdic['wval'][:,:] = qkv[2]
+fwdic['wt'][:,:]   = twdict['token_embedding_table.weight']
+fwdic['wp'][:,:]   = twdict['position_embedding_table.weight']
+fwdic['wo'][:,:]   = twdict['blocks.0.sa_heads.proj.weight']
+fwdic['wu'][:,:]   = twdict['blocks.0.ffwd.net.0.weight']
+fwdic['wd'][:,:]   = twdict['blocks.0.ffwd.net.2.weight']
+fwdic['wc'][:,:]   = twdict['lm_head.weight']
 
 ones = np.ones((sl,sl))
 cau_mask = (ones - np.tril(ones))
@@ -139,34 +122,35 @@ cau_mask = (ones - np.tril(ones))
 
 print("Training Torch")
 
-nbatch = np.zeros((bs, sl -1)).astype(np.int64, copy=False)
-ntarget = np.zeros((bs, sl -1)).astype(np.int64, copy=False)
-torch_losses = np.zeros((steps)).astype(np.float64)
+losses_dev = torch.zeros(steps, dtype=dtype, device=device)
+batch_offsets = torch.arange(bs, device=device)
 
 torch_model.train()
 start = time.time()
-index = 0
 n = sl - 1
 for step in range(steps):
-    for i in range(bs):
-        doc = docs[index % len(docs)]; index += 1
-        tokens = [vocab.index(ch) for ch in doc]
-        nbatch[i] = tokens[:n]
-        ntarget[i] = tokens[1:n+1]
+    # same docs, in the same order, as the original per-step loop
+    seqs = torch_data[(batch_offsets + step * bs) % n_docs]
+    batch = seqs[:, :n]
+    target = seqs[:, 1:n+1]
 
-    batch = torch.tensor(nbatch, dtype=torch.long, device= device)
-    target = torch.tensor(ntarget, dtype=torch.long, device= device)
-
-    logits, loss = torch_model(batch, target)
+    if compiled:
+        torch.compiler.cudagraph_mark_step_begin()
+    _, loss = train_model(batch, target)
 
     optimizer.zero_grad(set_to_none=True)
     loss.backward()
+    losses_dev[step] = loss.detach()
     optimizer.step()
     scheduler.step()
 
-    print(f"step {step+1:4d} / {steps:4d} | loss {loss.item():.4f}", end='\r')
+    # if (step + 1) % log_every == 0 or step + 1 == steps:
+    #     print(f"step {step+1:4d} / {steps:4d} | loss {losses_dev[step].item():.4f}", end='\r')
 
+if device.type == 'cuda':
+    torch.cuda.synchronize()
 end = time.time()
+torch_losses = losses_dev.double().cpu().numpy()
 print("torch training time", end - start)
 # # -------------------------------------
 # # TRAINING FUT
@@ -281,7 +265,7 @@ print("futhark loss", futhark_loss)
 print("torch   loss", torch_loss)
 
 # #-------------------------------------
-# # PLOTS
+# # # PLOTS
 
 # #### Probs
 while True:

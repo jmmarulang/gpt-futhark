@@ -1,7 +1,9 @@
 """
 A PyTorch equivalent of microgpt.py: train and run inference for a character-level GPT.
 """
-
+import numpy as np
+import time
+import random
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
@@ -15,36 +17,29 @@ n_head = 4
 head_dim = n_embd // n_head
 learning_rate = 0.01
 vocab_size = 27
-
-class Head(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.key = nn.Linear(n_embd, head_dim, bias=False)
-        self.query = nn.Linear(n_embd, head_dim, bias=False)
-        self.value = nn.Linear(n_embd, head_dim, bias=False)
-        self.register_buffer('tril', torch.tril(torch.ones(block_size, block_size)))
-
-    def forward(self, x):
-        B, T, C = x.shape
-        k = self.key(x)   # (B, T, head_dim)
-        q = self.query(x) # (B, T, head_dim)
-        # compute attention scores ("affinities")
-        wei = q @ k.transpose(-2, -1) * k.shape[-1]**-0.5 # (B, T, T)
-        wei = wei.masked_fill(self.tril[:T, :T] == 0, float('-inf'))
-        wei = F.softmax(wei, dim=-1)
-        # perform the weighted aggregation of the values
-        v = self.value(x) # (B, T, head_dim)
-        out = wei @ v # (B, T, T) @ (B, T, head_dim) -> (B, T, head_dim)
-        return out
+# steps = 10000
+# bs = 5
+# sl = 16
+# dtype = torch.float64  # GPUs run float64 at 1/2 to 1/64 of float32 speed; torch.float32 is much faster on consumer GPUs
+# use_compile = True     # torch.compile with CUDA graphs (GPU only); removes per-kernel launch overhead
+# log_every = 100        # printing the loss forces a GPU->CPU sync, so only do it every N steps
 
 class MultiHeadAttention(nn.Module):
     def __init__(self):
         super().__init__()
-        self.heads = nn.ModuleList([Head() for _ in range(n_head)])
+        # all heads' q, k, v in one matmul instead of 3 * n_head small ones
+        self.qkv = nn.Linear(n_embd, 3 * n_head * head_dim, bias=False)
         self.proj = nn.Linear(head_dim * n_head, n_embd, bias=False)
 
     def forward(self, x):
-        out = torch.cat([h(x) for h in self.heads], dim=-1)
+        B, T, C = x.shape
+        q, k, v = self.qkv(x).split(n_head * head_dim, dim=-1)
+        q = q.view(B, T, n_head, head_dim).transpose(1, 2) # (B, n_head, T, head_dim)
+        k = k.view(B, T, n_head, head_dim).transpose(1, 2)
+        v = v.view(B, T, n_head, head_dim).transpose(1, 2)
+        # fused causal attention (scale = head_dim**-0.5, same as before)
+        out = F.scaled_dot_product_attention(q, k, v, is_causal=True)
+        out = out.transpose(1, 2).contiguous().view(B, T, n_head * head_dim)
         out = self.proj(out)
         return out
 
@@ -104,8 +99,8 @@ class GPT(nn.Module):
         else:
             B, T, C = logits.shape
             logits_flat = logits.view(B*T, C)
-            targets = targets.view(B*T)
+            targets = targets.reshape(B*T)
             losses = F.cross_entropy(logits_flat, targets, reduction='none')
-            loss = loss = torch.sum(losses)/(B * block_size)
+            loss = torch.sum(losses)/(B * block_size)
 
         return logits, loss
