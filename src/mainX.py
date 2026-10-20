@@ -36,8 +36,8 @@ vocab = uchars + [bos]
 
 # Initialize the parameters, to store the knowledge of the model
 matrix_type = 'rand'
-steps = 1000
-bs = 5
+steps = 50000
+bs = 1
 iters = bs * steps
 ed = 16     # width of the network (embedding dimension)
 sl = 16 # maximum context length of the attention window (note: the longest name is 15 characters)
@@ -237,6 +237,17 @@ try:
 except :
     print("It refused")
 
+# # # -------------------------------------
+# # TRAINING PY
+
+print("Training Python")
+
+start = time.time()
+python_losses = mp.train(docs, vocab, BOS, iters, pwdic)
+end = time.time()
+
+print("python training time", end - start)
+
 #-------------------------------------
 # PROBS
 
@@ -278,7 +289,8 @@ with futhark_server.Server(futhark) as server:
     futhark_logits = server.get_value('flogits')
     futhark_loss = server.get_value('floss')
 
-# futhark_logits = futhark_logits.reshape(bs*sl, vocab_size)
+futhark_logits = futhark_logits[:,:-1]
+futhark_logits = futhark_logits.reshape(bs*(sl -1), vocab_size)
 # futhark_probs = np.array([softmax(logits) for logits in futhark_logits])
 # futhark_probs = futhark_probs[: dl]
 
@@ -292,12 +304,22 @@ with torch.no_grad():
     torch_logits, torch_loss = torch_model(x , y)
 torch_logits = torch_logits.numpy()
 torch_loss = torch_loss.numpy()
+torch_logits = torch_logits.reshape(bs*(sl -1), vocab_size)
 # torch_probs = np.array([softmax(logits) for logits in torch_logits])
+
+# # Python
+python_logits, python_loss = mp.forward_seq(python_tokens, pwdic)
+python_logits = np.array([[val.data for val in logits] for logits in python_logits])
+# python_logits = np.reshape(python_logits, (bs))
+# python_probs = np.array([softmax(logits) for logits in python_logits])
+python_loss = python_loss.data
+print(python_logits.shape)
 #-------------------------------------
 # TESTS
 
 print("futhark loss", futhark_loss)
 print("torch   loss", torch_loss)
+print("python  loss", python_loss)
 
 # #-------------------------------------
 # # PLOTS
@@ -344,19 +366,21 @@ print("torch   loss", torch_loss)
 
 # #### Probs
 while True:
-    bindex = int(input("batch <- "))
-    if bindex == -1: break
+    # bindex = int(input("batch <- "))
     pindex = int(input("position <- "))
+    if pindex == -1: break
 
     barWidth = 0.25
-    futhark_data = futhark_logits[bindex, pindex]
-    torch_data = torch_logits[bindex, pindex]
+    futhark_data = futhark_logits[pindex]
+    torch_data = torch_logits[pindex]
+    python_data = python_logits[pindex]
 
     br1 = np.arange(len(torch_data))
     br2 = [x + barWidth for x in br1]
     br3 = [x + barWidth for x in br2]
     plt.bar(br1, futhark_data, width=barWidth, label="futhark")
     plt.bar(br2, torch_data, width=barWidth, label="torch")
+    plt.bar(br3, python_data, width=barWidth, label="torch")
     plt.xticks([r + barWidth for r in range(len(torch_data))], vocab)
     plt.xlabel('next token probability', fontsize = 12)
     plt.legend()

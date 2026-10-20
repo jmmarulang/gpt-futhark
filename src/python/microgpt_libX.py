@@ -162,7 +162,8 @@ def train(docs, uchars, BOS, num_steps, state_dict):
 
         # Take single document, tokenize it, surround it with BOS special token on both sides
         doc = docs[step % len(docs)]
-        tokens = [BOS] + [uchars.index(ch) for ch in doc] + [BOS]
+        # tokens = [BOS] + [uchars.index(ch) for ch in doc] + [BOS]
+        tokens = [uchars.index(ch) for ch in doc]
         n = min(block_size, len(tokens) - 1)
 
         # Forward the token sequence through the model, building up the computation graph all the way to the loss
