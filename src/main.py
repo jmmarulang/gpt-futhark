@@ -16,8 +16,6 @@ torch.manual_seed(seed)
 def npsoftmax(x, axis=-1):
     return np.exp(x) / np.sum(np.exp(x), axis=axis, keepdims=True)
 
-# npsoftmax = np.vectorize(_npsoftmax)
-
 futhark = "futhark/microgpt"
 
 # Data
@@ -60,7 +58,9 @@ for i in range(len(docs)):
 
 # -------------------------------------
 # DEFINE TORCH MODEL
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 torch_model = mt.GPT().double()
+torch_model.to(device)
 learning_rate = 0.01
 
 optimizer = torch.optim.Adam(torch_model.parameters(), lr=learning_rate, betas=(0.85, 0.99), eps=1e-8)
@@ -154,8 +154,8 @@ for step in range(steps):
         nbatch[i] = tokens[:n]
         ntarget[i] = tokens[1:n+1]
 
-    batch = torch.tensor(nbatch, dtype=torch.long)
-    target = torch.tensor(ntarget, dtype=torch.long)
+    batch = torch.tensor(nbatch, dtype=torch.long, device= device)
+    target = torch.tensor(ntarget, dtype=torch.long, device= device)
 
     logits, loss = torch_model(batch, target)
 
@@ -268,8 +268,8 @@ n = sl - 1
 torch_target = torch_tokens[:,1:n+1]
 torch_model.eval()
 with torch.no_grad():
-    x = torch.tensor(torch_tokens[:,:n], dtype=torch.long)
-    y = torch.tensor(torch_target, dtype=torch.long)
+    x = torch.tensor(torch_tokens[:,:n], dtype=torch.long, device= device)
+    y = torch.tensor(torch_target, dtype=torch.long, device= device)
     torch_logits, torch_loss = torch_model(x , y)
 torch_logits = torch_logits.numpy()
 torch_loss = torch_loss.numpy()
