@@ -18,6 +18,8 @@ def npsoftmax(x, axis=-1):
 
 futhark = "futhark/microgpt"
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+tdtype = torch.float64
+fdtype = np.float64
 
 # Data
 file = open('input-mgpt/input.txt')
@@ -34,7 +36,7 @@ stoi = {ch: i for i, ch in reversed(list(enumerate(vocab)))} # first occurrence 
 
 # Initialize the parameters, to store the knowledge of the model
 matrix_type = 'rand'
-steps = 1000
+steps = 100
 bs = 5
 iters = bs * steps
 ed = 16     # width of the network (embedding dimension)
@@ -48,7 +50,6 @@ print("number of steps", steps)
 print("iterations", iters)
 
 # Tokenization and Padding
-seqs = []
 for i in range(len(docs)):
     doc = docs[i % len(docs)]
     doc = doc[:sl - 2]
@@ -57,19 +58,17 @@ for i in range(len(docs)):
     doc = doc + (bos * (sl - dl))
     docs[i] = doc
     assert len(docs[i]) == sl
-seqs = [[stoi[ch] for ch in doc] for doc in docs]
-torch_data = torch.tensor(seqs, dtype=torch.long, device=device)
-n_docs = torch_data.shape[0]
-assert len(docs) == n_docs
+data = [[stoi[ch] for ch in doc] for doc in docs]
+torch_data = torch.tensor(data, dtype=torch.long, device=device)
+futhark_data = np.array(data)
 
 # -------------------------------------
 # DEFINE TORCH MODEL
-dtype = torch.float64
 use_compile = True # torch.compile with CUDA graphs (GPU only); removes per-kernel launch overhead
 log_every = 100    # printing the loss forces a GPU->CPU sync, so only do it every N steps
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-torch_model = mt.GPT().to(device=device, dtype=dtype)
+torch_model = mt.GPT().to(device=device, dtype=tdtype)
 learning_rate = 0.01
 
 optimizer = torch.optim.Adam(
@@ -87,7 +86,7 @@ train_model = torch.compile(torch_model,mode='reduce-overhead', fullgraph=True)\
 
 twdict = torch_model.state_dict().copy()
 for k , t in twdict.items():
-    twdict[k] = t.numpy().astype(np.float64)
+    twdict[k] = t.numpy().astype(fdtype)
 
 fdimdic = {'wt' : (vocab_size, ed), 'wp' : (sl, ed),
           'wqry' : (ed, ed), 'wkey' : (ed, ed), 'wval' : (ed, ed),
@@ -122,7 +121,7 @@ cau_mask = (ones - np.tril(ones))
 
 print("Training Torch")
 
-losses_dev = torch.zeros(steps, dtype=dtype, device=device)
+losses_dev = torch.zeros(steps, dtype=tdtype, device=device)
 batch_offsets = torch.arange(bs, device=device)
 
 torch_model.train()
@@ -130,7 +129,7 @@ start = time.time()
 n = sl - 1
 for step in range(steps):
     # same docs, in the same order, as the original per-step loop
-    seqs = torch_data[(batch_offsets + step * bs) % n_docs]
+    seqs = torch_data[(batch_offsets + step * bs) % len(docs)]
     batch = seqs[:, :n]
     target = seqs[:, 1:n+1]
 
@@ -152,19 +151,22 @@ if device.type == 'cuda':
 end = time.time()
 torch_losses = losses_dev.double().cpu().numpy()
 print("torch training time", end - start)
+
+
 # # -------------------------------------
 # # TRAINING FUT
 print("Training Futhark")
 
-futhark_losses = np.zeros((steps)).astype(np.float64)
-masks = np.zeros((steps, sl, sl)).astype(np.float64)
-dls = np.zeros((steps)).astype(np.int64)
+futhark_losses = np.zeros((steps)).astype(fdtype)
+masks = np.zeros((steps, sl, sl)).astype(fdtype)
+dls = sl*np.ones((steps)).astype(np.int64)
 batches = np.zeros((steps, bs, sl)).astype(np.int64, copy=False)
 
 #Preprocessing
 for step in range(steps):
     masks[step] = -1*big_num*cau_mask
-    dls[step] = sl
+
+batch_offsets = np.arange(bs)
 
 with futhark_server.Server(futhark) as server:
     for k , data in fwdic.items():
@@ -177,13 +179,8 @@ with futhark_server.Server(futhark) as server:
 
     # start timer
     start = time.time()
-    # Tokenization
-    index = 0
     for step in range(steps):
-        for i in range(bs):
-            doc = docs[index % len(docs)]; index += 1
-            tokens = [vocab.index(ch) for ch in doc]
-            batches[step][i] = tokens
+        batches[step] = futhark_data[(batch_offsets + step * bs) % len(docs)]
     server.put_value('batches', batches)
     server.cmd_call('train', 'p_mp_vp', 'p', 'mp', 'vp', 'masks',
                     'dls', 'batches')
@@ -229,7 +226,7 @@ for i in range(dl):
     pad_mask[i][ 0 : dl] = 0
 
 # print(pad_mask)
-mask = np.where(cau_mask + pad_mask >= 1, 1, 0).astype(np.float64)
+mask = np.where(cau_mask + pad_mask >= 1, 1, 0).astype(fdtype)
 mask = -1*mask*big_num
 
 # Futhark
@@ -274,15 +271,15 @@ while True:
     pindex = int(input("position <- "))
 
     barWidth = 0.25
-    futhark_data = futhark_probs[bindex, pindex]
-    torch_data = torch_probs[bindex, pindex]
+    futhark_sample = futhark_probs[bindex, pindex]
+    torch_sample = torch_probs[bindex, pindex]
 
-    br1 = np.arange(len(torch_data))
+    br1 = np.arange(len(torch_sample))
     br2 = [x + barWidth for x in br1]
     br3 = [x + barWidth for x in br2]
-    plt.bar(br1, futhark_data, width=barWidth, label="futhark")
-    plt.bar(br2, torch_data, width=barWidth, label="torch")
-    plt.xticks([r + barWidth for r in range(len(torch_data))], vocab)
+    plt.bar(br1, futhark_sample, width=barWidth, label="futhark")
+    plt.bar(br2, torch_sample, width=barWidth, label="torch")
+    plt.xticks([r + barWidth for r in range(len(torch_sample))], vocab)
     plt.xlabel('next token probability', fontsize = 12)
     plt.legend()
     # plt.savefig('figures/main_' + "".join(doc) + "_pindex_" + str(pindex) + "_seed_" + str(seed) + "_iter_" + str(steps) + "_matrix_" + str(matrix_type) +  '_.png')
