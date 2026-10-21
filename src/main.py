@@ -36,7 +36,7 @@ stoi = {ch: i for i, ch in reversed(list(enumerate(vocab)))} # first occurrence 
 
 # Initialize the parameters, to store the knowledge of the model
 matrix_type = 'rand'
-steps = 100
+steps = 10000
 bs = 5
 iters = bs * steps
 ed = 16     # width of the network (embedding dimension)
