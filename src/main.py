@@ -252,8 +252,8 @@ with torch.no_grad():
     x = torch.tensor(torch_tokens[:,:n], dtype=torch.long, device= device)
     y = torch.tensor(torch_target, dtype=torch.long, device= device)
     torch_logits, torch_loss = torch_model(x , y)
-torch_logits = torch_logits.numpy()
-torch_loss = torch_loss.numpy()
+torch_logits = torch_logits .cpu().numpy()
+torch_loss = torch_loss .cpu().numpy()
 torch_probs =npsoftmax(torch_logits, 1)
 #-------------------------------------
 # TESTS
