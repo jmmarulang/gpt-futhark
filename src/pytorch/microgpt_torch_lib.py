@@ -17,12 +17,6 @@ n_head = 4
 head_dim = n_embd // n_head
 learning_rate = 0.01
 vocab_size = 27
-# steps = 10000
-# bs = 5
-# sl = 16
-# dtype = torch.float64  # GPUs run float64 at 1/2 to 1/64 of float32 speed; torch.float32 is much faster on consumer GPUs
-# use_compile = True     # torch.compile with CUDA graphs (GPU only); removes per-kernel launch overhead
-# log_every = 100        # printing the loss forces a GPU->CPU sync, so only do it every N steps
 
 class MultiHeadAttention(nn.Module):
     def __init__(self):
@@ -85,7 +79,7 @@ class GPT(nn.Module):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.08)
             # torch.nn.init.constant_(module.weight, self.const)
 
-    def forward(self, idx, targets=None):
+    def forward(self, idx, targets):
         B, T = idx.shape
         tok_emb = self.token_embedding_table(idx) # (B, T, n_embd)
         pos_emb = self.position_embedding_table(torch.arange(T, device=idx.device)) # (T, n_embd)
@@ -94,13 +88,13 @@ class GPT(nn.Module):
         x = self.blocks(x) # (B, T, n_embd)
         logits = self.lm_head(x) # (B, T, vocab_size)
 
-        if targets is None:
-            loss = None
-        else:
-            B, T, C = logits.shape
-            logits_flat = logits.view(B*T, C)
-            targets = targets.reshape(B*T)
-            losses = F.cross_entropy(logits_flat, targets, reduction='none')
-            loss = torch.sum(losses)/(B * block_size)
+        # if targets is None:
+        #     loss = None
+        # else:
+        B, T, C = logits.shape
+        logits_flat = logits.view(B*T, C)
+        targets = targets.reshape(B*T)
+        losses = F.cross_entropy(logits_flat, targets, reduction='none')
+        loss = torch.sum(losses)/(B * block_size)
 
         return logits, loss

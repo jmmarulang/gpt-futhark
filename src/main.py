@@ -36,8 +36,9 @@ stoi = {ch: i for i, ch in reversed(list(enumerate(vocab)))} # first occurrence 
 
 # Initialize the parameters, to store the knowledge of the model
 matrix_type = 'rand'
-steps = 10000
-bs = 5
+steps = 1000
+bs = 50
+aot_compile = True
 iters = bs * steps
 ed = 16     # width of the network (embedding dimension)
 sl = 16 # maximum context length of the attention window (note: the longest name is 15 characters)
@@ -64,8 +65,6 @@ futhark_data = np.array(data)
 
 # -------------------------------------
 # DEFINE TORCH MODEL
-use_compile = True # torch.compile with CUDA graphs (GPU only); removes per-kernel launch overhead
-log_every = 100    # printing the loss forces a GPU->CPU sync, so only do it every N steps
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 torch_model = mt.GPT().to(device=device, dtype=tdtype)
@@ -77,9 +76,7 @@ optimizer = torch.optim.Adam(
 scheduler = torch.optim.lr_scheduler.LinearLR(
     optimizer, start_factor=1.0, end_factor=0.0, total_iters=steps)
 
-compiled = use_compile and device.type == 'cuda'
-train_model = torch.compile(torch_model,mode='reduce-overhead', fullgraph=True)\
-    if compiled else torch_model
+train_model = torch.compile(torch_model,mode='reduce-overhead', fullgraph=True)
 
 # -------------------------------------
 # EXTRACT WEIGHTS
@@ -119,10 +116,28 @@ cau_mask = (ones - np.tril(ones))
 # # # -------------------------------------
 # # # TRAINING TORCH
 
-print("Training Torch")
+print("Compiling Torch")
 
 losses_dev = torch.zeros(steps, dtype=tdtype, device=device)
 batch_offsets = torch.arange(bs, device=device)
+
+if aot_compile:
+    start = time.time()
+    example_batch = torch.randint(
+        0, vocab_size, (bs, sl -1), dtype=torch.long
+    )
+
+    example_target = torch.randint(
+        0, vocab_size, (bs, sl -1), dtype=torch.long
+    )
+
+    compiled_fn = train_model.forward.aot_compile(
+        ((example_batch, example_target), {})
+    )
+    end = time.time()
+    print("torch compiling time", end - start)
+
+print("Training Torch")
 
 torch_model.train()
 start = time.time()
@@ -130,12 +145,14 @@ n = sl - 1
 for step in range(steps):
     # same docs, in the same order, as the original per-step loop
     seqs = torch_data[(batch_offsets + step * bs) % len(docs)]
-    batch = seqs[:, :n]
-    target = seqs[:, 1:n+1]
+    batch = seqs[:, :n].contiguous()
+    target = seqs[:, 1:n+1].contiguous()
 
-    if compiled:
-        torch.compiler.cudagraph_mark_step_begin()
-    _, loss = train_model(batch, target)
+    torch.compiler.cudagraph_mark_step_begin()
+    if aot_compile:
+        _, loss = compiled_fn(torch_model, batch, target)
+    else:
+        _, loss = train_model(batch, target)
 
     optimizer.zero_grad(set_to_none=True)
     loss.backward()
@@ -143,15 +160,11 @@ for step in range(steps):
     optimizer.step()
     scheduler.step()
 
-    # if (step + 1) % log_every == 0 or step + 1 == steps:
-    #     print(f"step {step+1:4d} / {steps:4d} | loss {losses_dev[step].item():.4f}", end='\r')
-
 if device.type == 'cuda':
     torch.cuda.synchronize()
 end = time.time()
 torch_losses = losses_dev.double().cpu().numpy()
 print("torch training time", end - start)
-
 
 # # -------------------------------------
 # # TRAINING FUT
@@ -265,22 +278,22 @@ print("torch   loss", torch_loss)
 # # # PLOTS
 
 # #### Probs
-while True:
-    bindex = int(input("batch <- "))
-    if bindex == -1: break
-    pindex = int(input("position <- "))
+# while True:
+#     bindex = int(input("batch <- "))
+#     if bindex == -1: break
+#     pindex = int(input("position <- "))
 
-    barWidth = 0.25
-    futhark_sample = futhark_probs[bindex, pindex]
-    torch_sample = torch_probs[bindex, pindex]
+#     barWidth = 0.25
+#     futhark_sample = futhark_probs[bindex, pindex]
+#     torch_sample = torch_probs[bindex, pindex]
 
-    br1 = np.arange(len(torch_sample))
-    br2 = [x + barWidth for x in br1]
-    br3 = [x + barWidth for x in br2]
-    plt.bar(br1, futhark_sample, width=barWidth, label="futhark")
-    plt.bar(br2, torch_sample, width=barWidth, label="torch")
-    plt.xticks([r + barWidth for r in range(len(torch_sample))], vocab)
-    plt.xlabel('next token probability', fontsize = 12)
-    plt.legend()
-    # plt.savefig('figures/main_' + "".join(doc) + "_pindex_" + str(pindex) + "_seed_" + str(seed) + "_iter_" + str(steps) + "_matrix_" + str(matrix_type) +  '_.png')
-    plt.show()
+#     br1 = np.arange(len(torch_sample))
+#     br2 = [x + barWidth for x in br1]
+#     br3 = [x + barWidth for x in br2]
+#     plt.bar(br1, futhark_sample, width=barWidth, label="futhark")
+#     plt.bar(br2, torch_sample, width=barWidth, label="torch")
+#     plt.xticks([r + barWidth for r in range(len(torch_sample))], vocab)
+#     plt.xlabel('next token probability', fontsize = 12)
+#     plt.legend()
+#     # plt.savefig('figures/main_' + "".join(doc) + "_pindex_" + str(pindex) + "_seed_" + str(seed) + "_iter_" + str(steps) + "_matrix_" + str(matrix_type) +  '_.png')
+#     plt.show()
