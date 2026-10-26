@@ -36,9 +36,9 @@ stoi = {ch: i for i, ch in reversed(list(enumerate(vocab)))} # first occurrence 
 
 # Initialize the parameters, to store the knowledge of the model
 matrix_type = 'rand'
-steps = 1000
+steps = 10000
 bs = 50
-aot_compile = True
+aot_compile = True # If true, torch model is compiled ahead of time
 iters = bs * steps
 ed = 16     # width of the network (embedding dimension)
 sl = 16 # maximum context length of the attention window (note: the longest name is 15 characters)
@@ -48,7 +48,7 @@ big_num = 1000000000000000000000000000000000000000000000000000000000000000
 
 print("batch size", bs)
 print("number of steps", steps)
-print("iterations", iters)
+print("number of documents", iters)
 
 # Tokenization and Padding
 for i in range(len(docs)):
@@ -116,12 +116,11 @@ cau_mask = (ones - np.tril(ones))
 # # # -------------------------------------
 # # # TRAINING TORCH
 
-print("Compiling Torch")
-
 losses_dev = torch.zeros(steps, dtype=tdtype, device=device)
 batch_offsets = torch.arange(bs, device=device)
 
 if aot_compile:
+    print("Compiling Torch")
     start = time.time()
     example_batch = torch.randint(
         0, vocab_size, (bs, sl -1), dtype=torch.long

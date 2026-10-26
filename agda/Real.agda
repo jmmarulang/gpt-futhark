@@ -40,13 +40,11 @@ record RealProp (r : Real) : Set where
     *-nulˡ : ∀ {x} → fromℕ 0 * x ≡ fromℕ 0
     *-nulʳ : ∀ {x} → x * fromℕ 0 ≡ fromℕ 0
     minus-*-pushʳ : ∀ {x y} → (x * (- y)) ≡ - (x * y)
+    minus-*-pushˡ : ∀ {x y} → ((- x) * y) ≡ - (x * y)
     minus-invʳ : ∀ {x} → (- (- x)) ≡ x
     minus-idʳ : - fromℕ 0 ≡ fromℕ 0
     ÷-nul : ∀ {x} → (x ≡ fromℕ 0 → ⊥) → fromℕ 0 ÷ x ≡ fromℕ 0
     *-÷-cut : ∀ {x y} → (x * (fromℕ 1 ÷ (x * y))) ≡ fromℕ 1 ÷ y -- wrong for x = 0
     fromℕ-inj : ∀ {x y} → (fromℕ x ≡ fromℕ y) → (x ≡ y)
     +-medial : ∀ {x y z w } → x + y + (z + w) ≡ x + z + (y + w)
-    _≡ᵣ?_ : ∀ (a b : R) → Dec (a ≡ b)
-
-  _≤ᵣ?_ : ∀ (a b : R) → Dec (b ≡ (a ∨ b))
-  a ≤ᵣ? b = _ ≡ᵣ? _
+    dist : ∀ {x y z} → x * (y + z) ≡ (x * y) + (x * z)

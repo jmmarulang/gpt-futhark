@@ -673,7 +673,7 @@ module Primitives where
       scaledown (len sl ℕ.* len bs) (Sum λ i → (sels l i))
 
     AH = [ 4 ] ; HD = [ 4 ] ; SL = [ 16 ] ; FD = [ 64 ] ; SC = 2
-    VO = [ 27 ] ; BS = [ 12345 ] ; ED = [ 16 ]
+    VO = [ 27 ] ; BS = [ 64 ] ; ED = [ 16 ]
 
     PR : AH * HD ≈ ED
     PR = cons

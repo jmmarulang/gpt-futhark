@@ -133,7 +133,8 @@ module Opt (r : Real) (rp : RealProp r) where
     -- default
     ... | ⊞ₒ | a , ap | b , bp = a ⊞ b
       , λ ρ j → cong₂ _+_ (ap ρ j) (bp ρ j)
-    ... | ⊠ₒ | ⊟ a , ap | b , bp = ⊟ (a ⊠ b) , {!   !}
+    ... | ⊠ₒ | ⊟ a , ap | b , bp = ⊟ (a ⊠ b)
+      , λ ρ i → cong₂ _*_ (ap ρ i) (bp ρ i) ∙ minus-*-pushˡ
     ... | ⊠ₒ | 𝟙 , ap | b , bp = b
       , λ ρ j → cong₂ _*_ (ap ρ j) (bp ρ j) ∙ *-neutˡ
     ... | ⊠ₒ | zero-but i j a , ap | b , bp = zero-but i j (a ⊠ b)
@@ -199,11 +200,27 @@ module Opt (r : Real) (rp : RealProp r) where
     ... | imapbₒ eq  | a , ap = La.imapb eq a
       , λ ρ j → ap (ρ , ix-div j eq) (ix-mod j eq)
   -- sum
-    ... | sumₒ {s = s} | a ⊠ b , ap = go where
+    ... | sumₒ {s = s} | e'@(a ⊠ b) , ap = go where
       go : _
-      go with (stren a v₀) | (stren b v₀)
-      ... | just c | _ = c ⊠ La.sum b , {!   !}
-      ... | _ | just d = (La.sum a) ⊠ d , {!   !}
+      go with (stren-∃ a v₀) | (stren-∃ b v₀)
+      ... | just (c , ceq) | _ = c ⊠ La.sum b
+        , λ ρ i → let w = skip ⊆-eq in
+        sum-inv _+_ (fromℕ 0) {λ j → eval e (ρ , j)} i
+        ∙ sum-cong _+_ (fromℕ 0) (λ j →
+          ap (ρ , j) i
+          ∙ flip (cong₂ _*_) refl (
+              cong (λ y → eval y (ρ , j) i) ceq
+              ∙ eval-wk w c _ _))
+        ∙ sum-const-out
+          {a = eval c (wk-env ⊆-eq ρ) i}
+          {b = λ j → eval b (ρ , j) i} (fromℕ 0)
+          +-neutˡ
+          (λ {x} → sym (*-nulʳ {x}))
+          (λ {_ _ z} → dist {_} {_} {z})
+        ∙ cong₂ _*_ (eval-cong c wk-env-id i)
+          (sym (sum-inv _+_ (fromℕ 0) {a = λ j → eval b (ρ , j)} i))
+
+      ... | _ | just (d , deq) = (La.sum a) ⊠ d , {!   !}
       ... | _ | _ = La.sum (a ⊠ b) , {!   !}
     ... | sumₒ {s = s} | ⊟ a , ap = ⊟ (La.sum a) , {!   !}
     ... | sumₒ {s = s} | let′ {s = q} a b , ap = let′ (imap a) (La.sum {s = s} $ sub b $
@@ -314,14 +331,6 @@ module Opt (r : Real) (rp : RealProp r) where
             ∙ zbs-cong _ _ (λ _ → sum-inv _+_ (fromℕ 0)
                 {(λ i₂ → eval a (ρ , i₂))} j) (lookup i′ ρ) (lookup j′ ρ))
 
-    -- ... | sumₒ {s = s ∷ ss} | og@(sels a (var v₀)) , ap = go where
-    --   go : _
-    --   go with (stren-∃ a v₀)
-    --   ... | just (a′ , aeq) = (Sum {[ s ]} λ i → Sum {ss} λ j → sels (sel (⟨ a′ ⟩) i) j) , {!   !}
-    --   ... | nothing = La.sum og
-          -- , λ ρ j → sum-inv _+_ (fromℕ 0) {(λ i₁ → eval e (ρ , i₁))} j
-          --   AH ⊗ (SL ⊗ HD)∙ sum-cong _+_ (fromℕ 0) {λ j₁ → eval e (ρ , j₁) j} (λ i → ap (ρ , i) j)
-          --   ∙ (sym (sum-inv _+_ (fromℕ 0) {λ i → eval og (ρ , i)} j))
     -- default
     ... | sumₒ | a , ap = La.sum a
       , λ ρ j → sum-inv _+_ (fromℕ 0) {(λ i₁ → eval e (ρ , i₁))} j
@@ -438,9 +447,6 @@ module Opt (r : Real) (rp : RealProp r) where
 -- opt-out
   danger-opt : E Γ is → E Γ is
   danger-opt e = (opt e .proj₁)
-
-  opt' : (e : E Γ is) → ∃ λ e′ → (e ≈ᵉ e′)
-  opt' e = {!   !}
 
   module _ where
 

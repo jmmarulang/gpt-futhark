@@ -377,27 +377,58 @@ module _ where
   transpose : Ar s X → Ar (reverse s) X
   transpose x i = x (unreverseP i)
 
-  sum₁-dist : (_⊙_ : X → X → X) (e : X) → ∀ {a b : Ar (n ∷ []) X} →
-    (∀ {x} → e ⊙ x ≡ x)
-    → (∀ {x y z w} → ((x ⊙ y) ⊙ (z ⊙ w)) ≡ ((x ⊙ z) ⊙ (y ⊙ w)))
-    → sum₁ (_⊙_) e (λ i → (a i) ⊙ (b i)) ≡
-      (sum₁ (_⊙_) e λ i → a i) ⊙ (sum₁ (_⊙_) e λ i → b i)
-  sum₁-dist {n = zero} _⊙_ e neul prop = sym neul
-  sum₁-dist {n = suc n} _⊙_ e {a} {b} neul prop =
-    let sum₁-dist' = λ i j → sum₁-dist _⊙_ e {i} {j} neul prop in
-    cong (λ x → _ ⊙ x) (sum₁-dist' (λ x → a (ιsuc x)) _) ∙ prop
+  sum₁-const-out : ∀ {a} {b : Ar [ n ] X} {_⊕_ _⊙_ : X → X → X} (e : X) →
+    (∀ {x} → e ⊕ x ≡ x) →
+    (∀ {x} → e ≡ x ⊙ e) →
+    (∀ {x y z} → x ⊙ (y ⊕ z) ≡ (x ⊙ y) ⊕ (x ⊙ z)) →
+    sum₁ (_⊕_) e (λ i → a ⊙ b i) ≡
+      (a ⊙ sum₁ (_⊕_) e λ i → b i)
+  sum₁-const-out {zero} e ⊕-neu ⊙-nul dist = ⊙-nul
+  sum₁-const-out {suc n} {b = b} {_⊕_} e ⊕-neu ⊙-nul dist = sym (dist ∙
+    cong (λ x → _ ⊕ x) (sym (sum₁-const-out {b = λ i → b (ιsuc i)} e
+        ⊕-neu (λ {x} → ⊙-nul {x}) dist)))
 
-  sum-dist : (_⊙_ : X → X → X) (e : X) → ∀ {a b : Ar s X} →
-    (∀ {x} → e ⊙ x ≡ x)
-    → (∀ {x y z w} → ((x ⊙ y) ⊙ (z ⊙ w)) ≡ ((x ⊙ z) ⊙ (y ⊙ w)))
-    → sum (_⊙_) e (λ i → (a i) ⊙ (b i)) ≡
-      (sum (_⊙_) e λ i → a i) ⊙ (sum (_⊙_) e λ i → b i)
-  sum-dist {s = []} _⊙_ e neul prop = refl
-  sum-dist {s = s ∷ ss} _⊙_ e {a} {b} neul prop =
-    let a' = λ i → sum _⊙_ e λ j → a (i ++ j) in
-    sym (sym (sum₁-dist _⊙_ e {a'} neul prop)
-    ∙ sum₁-cong {n = s} _⊙_ e λ i →
-      sym (sum-dist _⊙_ e {λ j → a (i ++ j)} neul prop))
+  sum-const-out : ∀ {a} {b : Ar s X} {_⊕_ _⊙_ : X → X → X} (e : X) →
+    (∀ {x} → e ⊕ x ≡ x) →
+    (∀ {x} → e ≡ x ⊙ e) →
+    (∀ {x y z} → x ⊙ (y ⊕ z) ≡ (x ⊙ y) ⊕ (x ⊙ z)) →
+    sum (_⊕_) e (λ i → a ⊙ b i) ≡
+      (a ⊙ sum (_⊕_) e λ i → b i)
+  sum-const-out {[]} e ⊕-neu ⊙-nul dist = refl
+  sum-const-out {s ∷ ss} {X} {a} {b} {_⊕_} e ⊕-neu ⊙-nul dist =
+    let b' = λ i → sum _⊕_ e λ j → b (i ++ j) in
+    sym (
+    (sym (sum₁-const-out {s} {b = b'} {_⊕_} e
+      ⊕-neu
+      (λ {x} → ⊙-nul {x})
+      λ {_ _ z} → dist {_} {_} {z}))
+    ∙ sum₁-cong {n = s} _⊕_ e
+      λ i → sym (sum-const-out {b = λ j → b (i ++ j)} e ⊕-neu
+        (λ {x} → ⊙-nul {x}) dist))
+
+-- (a ⊙ sum _⊕_ e (λ j → b (i ++ j))) ≡ sum _⊕_ e (λ j → a ⊙ b (i ++ j))
+
+  -- sum₁-dist : (_⊙_ : X → X → X) (e : X) → ∀ {a b : Ar (n ∷ []) X} →
+  --   (∀ {x} → e ⊙ x ≡ x)
+  --   → (∀ {x y z w} → ((x ⊙ y) ⊙ (z ⊙ w)) ≡ ((x ⊙ z) ⊙ (y ⊙ w)))
+  --   → sum₁ (_⊙_) e (λ i → (a i) ⊙ (b i)) ≡
+  --     (sum₁ (_⊙_) e λ i → a i) ⊙ (sum₁ (_⊙_) e λ i → b i)
+  -- sum₁-dist {n = zero} _⊙_ e neul prop = {!   !} --sym neul
+  -- sum₁-dist {n = suc n} _⊙_ e {a} {b} neul prop =
+  --   let sum₁-dist' = λ i j → sum₁-dist _⊙_ e {i} {j} neul prop in
+  --   cong (λ x → _ ⊙ x) (sum₁-dist' (λ x → a (ιsuc x)) _) ∙ prop
+  
+  -- sum-dist : (_⊙_ : X → X → X) (e : X) → ∀ {a b : Ar s X} →
+  --   (∀ {x} → e ⊙ x ≡ x)
+  --   → (∀ {x y z w} → ((x ⊙ y) ⊙ (z ⊙ w)) ≡ ((x ⊙ z) ⊙ (y ⊙ w)))
+  --   → sum (_⊙_) e (λ i → (a i) ⊙ (b i)) ≡
+  --     (sum (_⊙_) e λ i → a i) ⊙ (sum (_⊙_) e λ i → b i)
+  -- sum-dist {s = []} _⊙_ e neul prop = refl
+  -- sum-dist {s = s ∷ ss} _⊙_ e {a} {b} neul prop =
+  --   let a' = λ i → sum _⊙_ e λ j → a (i ++ j) in
+  --   sym (sym (sum₁-dist _⊙_ e {a'} neul prop)
+  --   ∙ sum₁-cong {n = s} _⊙_ e λ i →
+  --     sym (sum-dist _⊙_ e {λ j → a (i ++ j)} neul prop))
 
   lastIx : suc p ≈ s → P s
   lastIx {p} {[]} pr = []
