@@ -3,7 +3,7 @@ src/input/MNIST
 .pyenv
 .vscode
 agda/MAlonzo
-agda/*.agdai
+agda/**/*.agdai
 agda/ToFile
 agda/*.txt
 src/figures/*
