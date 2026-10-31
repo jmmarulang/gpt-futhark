@@ -301,17 +301,12 @@ module _ where
   --         return (f ∘ h , b′)
   -- ... | no b = {!   !} -- 2
 
-  {-# TERMINATING #-}
+  -- The summation index i is bound by the isum, so every let that
+  -- comes with the element (sem-sel-fut applies them) must stay inside.
   sem-sum : Sem (ar p) → Ix s → Ix p → State ℕ String
-  sem-sum {p}{s} (plain a) i j = do
-    f , a′ ← a j
-    return (f $ to-sum s i a′)
-
-  sem-sum {_}{s} (combined {q}{r} a) i kw = do
-    let k , w , pr = splitⁱ {q} kw
-    f , a′ ← a k
-    b ← sem-sum a′ i w
-    return (f $ to-sum s i b)
+  sem-sum {s = s} a i j = do
+    b ← sem-sel-fut a j
+    return (to-sum s i b)
 
   {-# TERMINATING #-} -- What is wrong with you, Agda?
   sem-imap : Sem (ar s) → State ℕ String
@@ -480,15 +475,15 @@ module _ where
       b ← sem-sel-fut a i
       return (id , printf "(F.log %s)" b)
 
+  -- As in sem-sum, the lets of the element at i must stay under the
+  -- isoftmax binder for i.
   to-fut (uop {s = s} softmax e) ρ = do
-    c ← get
     i ← fresh-ix s
     sf ← fresh-var
     a ← to-fut e ρ
     return $ plain λ j → do
-      _ , b ← sem-sel-fut' a i
-      f , _ ← sem-sel-fut' a i
-      return (printf "(let %s = %s\nin %s)" sf (to-softmax s i b) ∘ f , to-sel j sf)
+      b ← sem-sel-fut a i
+      return (printf "(let %s = %s\nin %s)" sf (to-softmax s i b) , to-sel j sf)
 
   -- to-fut (logi e) ρ = do
   --   a ← to-fut e ρ
@@ -560,3 +555,36 @@ test₃-s : String
 test₃-s = proj₂ (runState (to-str test₃-e (_ , plain (mkar "f"))) 0)
 -- "(imap1 5 (\\i0 -> (imap2 5 5 (\\i1 i2 -> (if ((i0 == i0)) then (let x3 = zero
 -- in x3) else zero)))))"
+
+-- Lets inside the summand must stay under the isum binder.
+test₄-e : E _ _
+test₄-e = Lcon (ar (5 ∷ []) ∷ []) (ar []) ε
+          λ a → Sum {5 ∷ []} λ i → Let x := sels a i In (x ⊞ x)
+
+test₄-s : String
+test₄-s = proj₂ (runState (to-str test₄-e (_ , plain (mkar "a"))) 0)
+
+_ : test₄-s ≡ "(isum1 5 (\\i0 -> (let x1 = a[i0]\nin (x1 F.+ x1))))"
+_ = refl
+
+-- Summing an imap (combined) must produce a single isum.
+test₅-e : E _ _
+test₅-e = Lcon (ar (5 ∷ []) ∷ []) (ar (3 ∷ [])) ε
+          λ a → Sum {5 ∷ []} λ i → Imap {3 ∷ []} {[]} λ j → sels a i
+
+test₅-s : String
+test₅-s = proj₂ (runState (to-str test₅-e (_ , plain (mkar "a"))) 0)
+
+_ : test₅-s ≡ "(imap1 3 (\\i1 -> (isum1 5 (\\i0 -> a[i0]))))"
+_ = refl
+
+-- Lets of the softmax argument must be bound before isoftmax uses them.
+test₆-e : E _ _
+test₆-e = Lcon (ar (5 ∷ []) ∷ []) (ar (5 ∷ [])) ε
+          λ a → ℙ (Let y := a ⊞ a In y)
+
+test₆-s : String
+test₆-s = proj₂ (runState (to-str test₆-e (_ , plain (mkar "a"))) 0)
+
+_ : test₆-s ≡ "(let x1 = (isoftmax1 5 (\\i0 -> (let x2 = (imap1 5 (\\i4 -> (a[i4] F.+ a[i4])))\nin x2[i0])))\nin (imap1 5 (\\i3 -> x1[i3])))"
+_ = refl
