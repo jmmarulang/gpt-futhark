@@ -39,7 +39,7 @@ module Extract where
   open import Lang
   open import Ar hiding (r ; Ix)
   open import Function
-  open import Futhark
+  import Backend.Futhark as BF
   open import Replace
 
   open import Effect.Monad.State
@@ -154,18 +154,29 @@ module Extract where
     ε : NamedEnv ε
     _▹_ : NamedEnv Γ → String → NamedEnv (Γ ▹ is)
 
-  from-named : NamedEnv Γ → FEnv Γ
-  from-named ε = _
-  from-named (_▹_ {is = ix s} ρ x) = from-named ρ , index (fresh-ix-named s x) --fresh-ix x
-  from-named (_▹_ {is = ar s} ρ x) = from-named ρ , plain (mkar x) --mkar x
+  names : NamedEnv Γ → BF.Names Γ
+  names ε = BF.ε
+  names (ρ ▹ x) = names ρ BF.▹ x
 
-  -- Show chain using SemFuthark
+  -- Code generation with the verified backend (Backend/Futhark.agda).
+  to-fut : E Γ (ar s) → NamedEnv Γ → String
+  to-fut e ρ = BF.toFuthark e (names ρ)
+
+  -- Names of the lets in the chain; they must not clash with the names
+  -- x<n>, i<n> that the backend uses for bound variables.
+  fresh-var : State ℕ String
+  fresh-var = do
+    c ← get
+    modify suc
+    return (printf "t%u" c)
+
+  -- Show chain
   env-fut′ : Env Γ Δ → NamedEnv Γ → NamedEnv Δ → State ℕ String
   env-fut′ ε ρ ν = return ""
   env-fut′ (skip e) (ρ ▹ _) ν = env-fut′ e ρ ν
   env-fut′ (e ▹ x) (ρ ▹ n) ν = do
     r ← env-fut′ e ρ ν
-    v ← to-str x (from-named ν)
+    let v = to-fut x ν
     return $ printf "%s\nlet d%s = %s" r n v
 
   ee-fut′ : EE Γ Δ → NamedEnv Γ → NamedEnv Δ → State ℕ String
@@ -173,7 +184,7 @@ module Extract where
   ee-fut′ (let′ {s = s} x e) ρ ν = do
     c ← get
     modify suc
-    v ← to-str x (from-named ν)
+    let v = to-fut x ν
     let n = proj₂ (runState fresh-var c) --fresh-var c
     r ← ee-fut′ e ρ (ν ▹ n)
     return $ printf "let %s = %s\n%s" n v r
@@ -242,16 +253,14 @@ module Extract where
   open Microgpt
 
   bgpt-forward-s : String
-  bgpt-forward-s = proj₂ (runState (to-str ( multiopt bgpt-forward-e OPT)
-    (from-named
+  bgpt-forward-s = to-fut (multiopt bgpt-forward-e OPT)
       (ε ▹ "wp" ▹ "wkey" ▹ "wqry" ▹ "wval" ▹ "wo"
-         ▹ "mask" ▹ "wu" ▹ "wd" ▹ "wc" ▹ "ws"))) 0)
+         ▹ "mask" ▹ "wu" ▹ "wd" ▹ "wc" ▹ "ws")
 
   bgpt-loss-s : String
-  bgpt-loss-s = proj₂ (runState (to-str ( multiopt bgpt-loss-e OPT)
-    (from-named
+  bgpt-loss-s = to-fut (multiopt bgpt-loss-e OPT)
       (ε ▹ "wp" ▹ "wkey" ▹ "wqry" ▹ "wval" ▹ "wo"
-         ▹ "mask" ▹ "wu" ▹ "wd" ▹ "wc" ▹ "ws" ▹ "target"))) 0)
+         ▹ "mask" ▹ "wu" ▹ "wd" ▹ "wc" ▹ "ws" ▹ "target")
 
   grad-bgpt-loss-e = ee-OPT $ ee-dedup $ ee-OPT (grad bgpt-loss-e 𝟙 zero-ee)
 
