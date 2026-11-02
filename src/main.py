@@ -35,8 +35,8 @@ stoi = {ch: i for i, ch in reversed(list(enumerate(vocab)))} # first occurrence 
 
 # Initialize the parameters, to store the knowledge of the model
 matrix_type = 'rand'
-steps = 10000
-bs = 50
+steps = 1000
+bs = 500
 aot_compile = True # If true, torch model is compiled ahead of time
 iters = bs * steps
 ed = 16     # width of the network (embedding dimension)
@@ -188,10 +188,11 @@ with futhark_server.Server(futhark) as server:
     server.put_value('masks', masks)
     server.put_value('dls', dls)
 
-    # start timer
-    start = time.time()
     for step in range(steps):
         batches[step] = futhark_data[(batch_offsets + step * bs) % len(docs)]
+
+    # start timer
+    start = time.time()
     server.put_value('batches', batches)
     server.cmd_call('train', 'p_mp_vp', 'p', 'mp', 'vp', 'masks',
                     'dls', 'batches')
@@ -271,29 +272,3 @@ torch_probs =npsoftmax(torch_logits, 1)
 
 print("futhark loss", futhark_loss)
 print("torch   loss", torch_loss)
-
-# #-------------------------------------
-# # # PLOTS
-
-# import matplotlib.pyplot as plt
-
-# #### Probs
-# while True:
-#     bindex = int(input("batch <- "))
-#     if bindex == -1: break
-#     pindex = int(input("position <- "))
-
-#     barWidth = 0.25
-#     futhark_sample = futhark_probs[bindex, pindex]
-#     torch_sample = torch_probs[bindex, pindex]
-
-#     br1 = np.arange(len(torch_sample))
-#     br2 = [x + barWidth for x in br1]
-#     br3 = [x + barWidth for x in br2]
-#     plt.bar(br1, futhark_sample, width=barWidth, label="futhark")
-#     plt.bar(br2, torch_sample, width=barWidth, label="torch")
-#     plt.xticks([r + barWidth for r in range(len(torch_sample))], vocab)
-#     plt.xlabel('next token probability', fontsize = 12)
-#     plt.legend()
-#     # plt.savefig('figures/main_' + "".join(doc) + "_pindex_" + str(pindex) + "_seed_" + str(seed) + "_iter_" + str(steps) + "_matrix_" + str(matrix_type) +  '_.png')
-#     plt.show()

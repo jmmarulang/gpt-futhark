@@ -1,5 +1,5 @@
 """
-A PyTorch equivalent of microgpt.py: train and run inference for a character-level GPT.
+A PyTorch equivalent of microgpt.py
 """
 import numpy as np
 import time
@@ -9,7 +9,6 @@ import torch.nn as nn
 from torch.nn import functional as F
 
 # Hyperparameters
-# const = 0.6
 n_layer = 1
 n_embd = 16
 block_size = 16
@@ -88,9 +87,6 @@ class GPT(nn.Module):
         x = self.blocks(x) # (B, T, n_embd)
         logits = self.lm_head(x) # (B, T, vocab_size)
 
-        # if targets is None:
-        #     loss = None
-        # else:
         B, T, C = logits.shape
         logits_flat = logits.view(B*T, C)
         targets = targets.reshape(B*T)
