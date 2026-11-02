@@ -92,10 +92,10 @@ module _ where
     a ← ppx (1 + precApp) e ρ
     i ← ppx (1 + precApp) e₁ ρ
     return (pars (does (p >? precApp)) $ printf "sels %s %s" a i)
-  ppx p (imap′ refl e) ρ = do
+  ppx p (imap′ {s = s} refl e) ρ = do
     iv ← fresh-var
     a ← ppx 0 e (ρ , iv)
-    return (pars (does (p >? precImap)) (printf "imap λ %s → %s" iv a))
+    return (pars (does (p >? precImap)) (printf "imap (%s) λ %s → %s" (shape-args s) iv a))
   ppx pr (sel′ {s = s} {p = p} refl e e₁) ρ = do
     a ← ppx (1 + precApp) e ρ
     i ← ppx (1 + precApp) e₁ ρ

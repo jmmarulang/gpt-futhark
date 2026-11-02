@@ -111,7 +111,7 @@ module _ where
   {-# TERMINATING #-}  -- See GradTerm.agda where this is fixed
   ee-plus : (ρ ν : EE Γ Δ) → EE Γ Δ
   ee-plus (env ρ) (env ν) = env (env-plus ρ ν)
-  ee-plus (env ρ) (let′ x ν) = let′ x (ee-plus (ee-wk (skip ⊆-eq) (env ρ)) ν) -- TODO : substituve replicated let bindings
+  ee-plus (env ρ) (let′ x ν) = let′ x (ee-plus (ee-wk (skip ⊆-eq) (env ρ)) ν)
   ee-plus (let′ x ρ) ν = let′ x (ee-plus ρ (ee-wk (skip ⊆-eq) ν))
 
   -- ee-plus : (ρ ν : EE Γ Δ) → EE Γ Δ

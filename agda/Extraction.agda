@@ -265,7 +265,13 @@ module Extract where
          ▹ "mask" ▹ "wu" ▹ "wd" ▹ "wc" ▹ "ws" ▹ "target")
 
   test : E _ _
-  test = Lcon (ar ((AH ⊗ (SL ⊗ HD))) ∷ []) (ar (SL)) ε
-    λ x → Imap {SL} λ k → Sum {AH} λ i → Sum {HD} λ j → sels (sel (sel x i) k) j
+  test = Lcon (ar [ 67 ] ∷ []) (ar []) ε
+    λ x → Let y := Imap {[ 67 ]} (λ i → Let z := x ⊠ x In sels z i) In Sum {[ 67 ]} (λ j → sels ( y) j)
 
   grad-test-pp = Pretty.pretty test (ε ▹ "x")
+
+{-
+let' x0 = imaps (67) λ x1 → 1
+let' x2 = imaps (67) λ x3 → sel (67) (67) x0 x3
+let dx = (x * x2) + (x2 * x)
+-}
