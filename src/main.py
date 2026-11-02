@@ -82,7 +82,7 @@ train_model = torch.compile(torch_model,mode='reduce-overhead', fullgraph=True)
 
 twdict = torch_model.state_dict().copy()
 for k , t in twdict.items():
-    twdict[k] = t.numpy().astype(fdtype)
+    twdict[k] = t.cpu().numpy().astype(fdtype)
 
 fdimdic = {'wt' : (vocab_size, ed), 'wp' : (sl, ed),
           'wqry' : (ed, ed), 'wkey' : (ed, ed), 'wval' : (ed, ed),
@@ -122,11 +122,11 @@ if aot_compile:
     print("Compiling Torch")
     start = time.time()
     example_batch = torch.randint(
-        0, vocab_size, (bs, sl -1), dtype=torch.long
+        0, vocab_size, (bs, sl -1), dtype=torch.long, device=device
     )
 
     example_target = torch.randint(
-        0, vocab_size, (bs, sl -1), dtype=torch.long
+        0, vocab_size, (bs, sl -1), dtype=torch.long, device=device
     )
 
     compiled_fn = train_model.forward.aot_compile(
