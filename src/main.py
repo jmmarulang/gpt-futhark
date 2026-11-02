@@ -1,5 +1,4 @@
 import numpy as np
-import matplotlib.pyplot as plt
 import python.microgpt_lib as mp
 import time
 import random
@@ -275,6 +274,8 @@ print("torch   loss", torch_loss)
 
 # #-------------------------------------
 # # # PLOTS
+
+# import matplotlib.pyplot as plt
 
 # #### Probs
 # while True:
