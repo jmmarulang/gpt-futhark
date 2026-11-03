@@ -1,0 +1,78 @@
+--- a/agda/Futhark.agda
++++ b/agda/Futhark.agda
+@@ -301,17 +301,12 @@
+   --         return (f ∘ h , b′)
+   -- ... | no b = {!   !} -- 2
+ 
+-  {-# TERMINATING #-}
++  -- The summation index i is bound by the isum, so every let that
++  -- comes with the element (sem-sel-fut applies them) must stay inside.
+   sem-sum : Sem (ar p) → Ix s → Ix p → State ℕ String
+-  sem-sum {p}{s} (plain a) i j = do
+-    f , a′ ← a j
+-    return (f $ to-sum s i a′)
+-
+-  sem-sum {_}{s} (combined {q}{r} a) i kw = do
+-    let k , w , pr = splitⁱ {q} kw
+-    f , a′ ← a k
+-    b ← sem-sum a′ i w
+-    return (f $ to-sum s i b)
++  sem-sum {s = s} a i j = do
++    b ← sem-sel-fut a j
++    return (to-sum s i b)
+ 
+   {-# TERMINATING #-} -- What is wrong with you, Agda?
+   sem-imap : Sem (ar s) → State ℕ String
+@@ -480,15 +475,15 @@
+       b ← sem-sel-fut a i
+       return (id , printf "(F.log %s)" b)
+ 
++  -- As in sem-sum, the lets of the element at i must stay under the
++  -- isoftmax binder for i.
+   to-fut (uop {s = s} softmax e) ρ = do
+-    c ← get
+     i ← fresh-ix s
+     sf ← fresh-var
+     a ← to-fut e ρ
+     return $ plain λ j → do
+-      _ , b ← sem-sel-fut' a i
+-      f , _ ← sem-sel-fut' a i
+-      return (printf "(let %s = %s\nin %s)" sf (to-softmax s i b) ∘ f , to-sel j sf)
++      b ← sem-sel-fut a i
++      return (printf "(let %s = %s\nin %s)" sf (to-softmax s i b) , to-sel j sf)
+ 
+   -- to-fut (logi e) ρ = do
+   --   a ← to-fut e ρ
+@@ -568,8 +563,9 @@
+ 
+ test₄-s : String
+ test₄-s = proj₂ (runState (to-str test₄-e (_ , plain (mkar "a"))) 0)
+--- Expected: "(isum1 5 (\\i0 -> (let x1 = a[i0]
+--- in (x1 F.+ x1))))"
++
++_ : test₄-s ≡ "(isum1 5 (\\i0 -> (let x1 = a[i0]\nin (x1 F.+ x1))))"
++_ = refl
+ 
+ -- Summing an imap (combined) must produce a single isum.
+ test₅-e : E _ _
+@@ -578,7 +574,9 @@
+ 
+ test₅-s : String
+ test₅-s = proj₂ (runState (to-str test₅-e (_ , plain (mkar "a"))) 0)
+--- Expected: "(imap1 3 (\\i1 -> (isum1 5 (\\i0 -> a[i0]))))"
++
++_ : test₅-s ≡ "(imap1 3 (\\i1 -> (isum1 5 (\\i0 -> a[i0]))))"
++_ = refl
+ 
+ -- Lets of the softmax argument must be bound before isoftmax uses them.
+ test₆-e : E _ _
+@@ -587,6 +585,6 @@
+ 
+ test₆-s : String
+ test₆-s = proj₂ (runState (to-str test₆-e (_ , plain (mkar "a"))) 0)
+--- Expected: "(let x1 = (isoftmax1 5 (\\i0 -> (let x2 = (imap1 5 (\\i4 -> (a[i4] F.+ a[i4])))
+--- in x2[i0])))
+--- in (imap1 5 (\\i3 -> x1[i3])))"
++
++_ : test₆-s ≡ "(let x1 = (isoftmax1 5 (\\i0 -> (let x2 = (imap1 5 (\\i4 -> (a[i4] F.+ a[i4])))\nin x2[i0])))\nin (imap1 5 (\\i3 -> x1[i3])))"
++_ = refl
