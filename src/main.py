@@ -205,14 +205,6 @@ for i , k in enumerate(fdimdic.keys()):
     fmdic[k] = p_mp_vp[i + 9]
     fmdic[k] = p_mp_vp[i + 18]
 
-try:
-    np.save("fwdic.npy", fwdic, allow_pickle=True)
-    file = open('fwdic.txt', 'wt')
-    file.write(str(fwdic))
-    file.close()
-except :
-    print("It refused")
-
 #-------------------------------------
 # PROBS
 
