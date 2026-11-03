@@ -1,5 +1,4 @@
 import numpy as np
-import python.microgpt_lib as mp
 import time
 import random
 import futhark_server
@@ -35,8 +34,8 @@ stoi = {ch: i for i, ch in reversed(list(enumerate(vocab)))} # first occurrence 
 
 # Initialize the parameters, to store the knowledge of the model
 matrix_type = 'rand'
-steps = 1000
-bs = 500
+steps = 10000
+bs = 50
 aot_compile = True # If true, torch model is compiled ahead of time
 iters = bs * steps
 ed = 16     # width of the network (embedding dimension)
@@ -192,8 +191,8 @@ with futhark_server.Server(futhark) as server:
         batches[step] = futhark_data[(batch_offsets + step * bs) % len(docs)]
 
     # start timer
-    start = time.time()
     server.put_value('batches', batches)
+    start = time.time()
     server.cmd_call('train', 'p_mp_vp', 'p', 'mp', 'vp', 'masks',
                     'dls', 'batches')
     end = time.time()
