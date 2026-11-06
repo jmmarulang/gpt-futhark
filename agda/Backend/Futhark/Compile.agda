@@ -231,7 +231,7 @@ compile-top e = reify (compile e idEnv)
 
 module Soundness (r : Real) (rp : RealProp r) where
   open Real.Real r
-  open import Eval r rp
+  open import Eval r
   import Backend.Futhark.Semantics as FEval
   module FE = FEval r
   open FE using (evalI; evalIdx; evalI-wk; evalIdx-wk; ifeqᵣ; uopᵣ; bopᵣ; kopᵣ; hd; Softmax-cong;

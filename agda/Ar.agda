@@ -62,6 +62,18 @@ module _ where
   K : X → Ar s X
   K x i = x
 
+  -- Pointwise equality of arrays.
+  infix 4 _≈ᵃ_
+  _≈ᵃ_ : Ar s X → Ar s X → Set
+  a ≈ᵃ b = ∀ i → a i ≡ b i
+
+  reflᵃ : ∀ {a : Ar s X} → a ≈ᵃ a
+  reflᵃ i = refl
+
+  infixr 4 _∙ᵃ_
+  _∙ᵃ_ : {a b c : Ar s X} → a ≈ᵃ b → b ≈ᵃ c → a ≈ᵃ c
+  p ∙ᵃ q = λ i → p i ∙ q i
+
   map : (X → Y) → Ar s X → Ar s Y
   map f a i = f (a i)
 
@@ -191,6 +203,22 @@ module _ where
             in σ (map σ a) ≡ σ (unnest a)
   sum-map {s = []} f e = refl
   sum-map {s = x ∷ s}{p = p} f e = sum₁-cong {n = x} f e λ { (i ∷ []) → sum-map {s = s} f e}
+
+  -- Homomorphisms commute with sums.
+  sum₁-hom : (h : X → Y) (f : X → X → X) (g : Y → Y → Y) (e : X) (e′ : Y)
+           → (∀ x y → h (f x y) ≡ g (h x) (h y)) → h e ≡ e′
+           → (a : Ar [ n ] X) → h (sum₁ f e a) ≡ sum₁ g e′ (h ∘ a)
+  sum₁-hom {n = zero} h f g e e′ hf he a = he
+  sum₁-hom {n = suc n} h f g e e′ hf he a =
+    hf _ _ ∙ cong (g _) (sum₁-hom h f g e e′ hf he (a ∘ ιsuc))
+
+  sum-hom : (h : X → Y) (f : X → X → X) (g : Y → Y → Y) (e : X) (e′ : Y)
+          → (∀ x y → h (f x y) ≡ g (h x) (h y)) → h e ≡ e′
+          → (a : Ar s X) → h (sum f e a) ≡ sum g e′ (h ∘ a)
+  sum-hom {s = []} h f g e e′ hf he a = refl
+  sum-hom {s = x ∷ s} h f g e e′ hf he a =
+    sum₁-hom {n = x} h f g e e′ hf he (λ i → sum f e (λ j → a (i ++ j)))
+    ∙ sum₁-cong g e′ (λ i → sum-hom h f g e e′ hf he (λ j → a (i ++ j)))
 
   _≟ₚ_ : (i j : P s) → Dec (i ≡ j)
   _≟ₚ_ {[]} [] [] = yes refl

@@ -16,9 +16,8 @@ open import Ar
 open import Lang
 open import Real
 
-module Eval (r : Real) (rp : RealProp r) where
+module Eval (r : Real) where
   open Real.Real r
-  open RealProp rp
 
   ⟦_⟧ˢ : IS → Set
   ⟦ ix s ⟧ˢ = P s
@@ -75,8 +74,6 @@ module Eval (r : Real) (rp : RealProp r) where
   eval (ln e) ρ = Ar.map log (eval e ρ)
   eval (ℙ e) ρ = Softmax (eval e ρ)
 
-  _≈ᵃ_ : Ar s X → Ar s X → Set
-  a ≈ᵃ b = ∀ i → a i ≡ b i
 
   _≈ˢ_ : (a b : ⟦ is ⟧ˢ) → Set
   _≈ˢ_ {ix s} a b = a ≡ b
@@ -93,16 +90,11 @@ module Eval (r : Real) (rp : RealProp r) where
   reflˢ {ix x₁}  = refl
   reflˢ {ar x₁} i = refl
 
-  reflᵃ : ∀ {a : Ar s X} → a ≈ᵃ a
-  reflᵃ i = refl
 
   symˢ : {a b : ⟦ is ⟧ˢ} → a ≈ˢ b → b ≈ˢ a
   symˢ {ix x} {a} {b} refl = refl
   symˢ {ar x} {a} {b} eq i = sym (eq i)
 
-  infix 4 _∙ᵃ_
-  _∙ᵃ_ : {a b c : Ar s X} → a ≈ᵃ b → b ≈ᵃ c → a ≈ᵃ c
-  p ∙ᵃ q = λ i → p i ∙ q i
 
   infix 4 _∙ˢ_
   _∙ˢ_ : {a b c : ⟦ is ⟧ˢ} → a ≈ˢ b → b ≈ˢ c → a ≈ˢ c
@@ -323,7 +315,10 @@ module Eval (r : Real) (rp : RealProp r) where
     open import Data.Maybe
     open import Data.Maybe.Properties
 
-  module ZeroBut where
+  module ZeroBut (rp : RealProp r) where
+    open RealProp rp
+    open import RSum r rp public using (sum₁-zero; sum-zero)
+    open import RSum r rp using (rsum; rsum-cong; rsum-cong′)
 
     zbs-suc-r : (i : P (n ∷ [])) (j : P (n ∷ [])) (is js : P s) (t : P (n ∷ s) → R)
               → zbs (j ++ js) (i ++ is) (t) ≡ zbs js is (λ ks → zbs (j) (i) (λ k → t (k ++ ks)))
@@ -336,14 +331,6 @@ module Eval (r : Real) (rp : RealProp r) where
     ... | no ¬p  | yes refl | yes refl = ⊥-elim (¬p refl)
     ... | no _ | no _ | no _ = refl
     ... | no ¬p | no _ | yes refl = ⊥-elim (¬p refl)
-
-    sum₁-zero : sum₁ {n = n} _+_ (fromℕ 0) (K (fromℕ 0)) ≡ fromℕ 0
-    sum₁-zero {zero} = refl
-    sum₁-zero {suc n} = +-neutˡ ∙ sum₁-zero {n}
-
-    sum-zero : Ar.sum {s = s} _+_ (fromℕ 0) (λ _ → fromℕ 0) ≡ fromℕ 0
-    sum-zero {s = []} = refl -- +-neutʳ
-    sum-zero {s = x ∷ s} = sum₁-cong {n = x} _+_ (fromℕ 0) (λ i → sum-zero {s}) ∙ sum₁-zero {x}
 
     zbs-zero : (t : P (suc n ∷ []) → R)
              → sum₁ _+_ (fromℕ 0) (λ x → zbs (zero ∷ []) (ιsuc x) t) ≡ fromℕ 0
@@ -423,3 +410,33 @@ module Eval (r : Real) (rp : RealProp r) where
     zb-zbs-k i j k t with i ≟ₚ j
     ... | yes refl = refl
     ... | no _ = refl
+
+    -- Delta rules for sums of one-hot arrays
+    rsum-zb : (c : P s) (a : Ar p R) (k : P p) (g : P s → R)
+            → rsum (λ j → zb j c a k * g j) ≡ a k * g c
+    rsum-zb c a k g = rsum-cong go ∙ zbs-sum-s c (λ j → a k * g j)
+      where go : ∀ j → zb j c a k * g j ≡ zbs c j (λ j → a k * g j)
+            go j with j ≟ₚ c | c ≟ₚ j
+            ... | yes refl | yes _ = refl
+            ... | yes refl | no ¬p = ⊥-elim (¬p refl)
+            ... | no ¬p | yes refl = ⊥-elim (¬p refl)
+            ... | no _ | no _ = *-nulˡ
+
+    hot : P s → Ar s R
+    hot i j = zbs i j (K (fromℕ 1))
+
+    rsum-hot : (a : Ar s R) (j : P s) → rsum (λ i → a i * hot i j) ≡ a j
+    rsum-hot a j = rsum-cong go ∙ zbs-sum-s j a
+      where go : ∀ i → a i * hot i j ≡ zbs j i a
+            go i with i ≟ₚ j | j ≟ₚ i
+            ... | yes refl | yes _ = *-neutʳ
+            ... | yes refl | no ¬p = ⊥-elim (¬p refl)
+            ... | no ¬p | yes refl = ⊥-elim (¬p refl)
+            ... | no _ | no _ = *-nulʳ
+
+    rsum-hot′ : (i : P s) (a : Ar s R) → rsum (λ j → hot i j * a j) ≡ a i
+    rsum-hot′ i a = rsum-cong′ (λ j → hot i j * a j) (λ j → zbs i j a) go ∙ zbs-sum-s i a
+      where go : ∀ j → hot i j * a j ≡ zbs i j a
+            go j with i ≟ₚ j
+            ... | yes refl = *-neutˡ
+            ... | no _ = *-nulˡ

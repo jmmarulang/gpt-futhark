@@ -10,7 +10,7 @@ open import Relation.Binary.PropositionalEquality
 open import Relation.Nullary
 open import Function
 
-open import Ar using (Ar; P; K; sum₁; sum₁-cong; sum-cong)
+open import Ar using (Ar; P; K; sum₁; sum₁-cong; sum-cong; _≈ᵃ_)
 import Ar as A
 open import Lang using (Kop; 𝟘ₒ; 𝟙ₒ; Bop; ⊞ₒ; ⊠ₒ)
 open import Real
@@ -90,10 +90,7 @@ module Backend.Futhark.Semantics (r : Real) where
   eval (let′ e e₁) ρ = eval e₁ (ρ , eval e ρ)
   eval (ilet i e) ρ = eval e (ρ , evalI i ρ)
 
-  -- Pointwise equality of arrays and environments.
-  _≈ᵃ_ : Ar s R → Ar s R → Set
-  a ≈ᵃ b = ∀ i → a i ≡ b i
-
+  -- Pointwise equality of environments.
   _≈ᵗ_ : ⟦ τ ⟧ᵗ → ⟦ τ ⟧ᵗ → Set
   _≈ᵗ_ {ix n} a b = a ≡ b
   _≈ᵗ_ {ar s} a b = a ≈ᵃ b

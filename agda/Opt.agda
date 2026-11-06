@@ -27,8 +27,8 @@ module Opt (r : Real) (rp : RealProp r) where
   open Real.Real r
   open RealProp rp
 
-  open import Eval r rp
-  open ZeroBut
+  open import Eval r
+  open ZeroBut rp
   open WkSub hiding (_∙ˢ_)
   open import Data.Maybe
   open Syntax
