@@ -2,7 +2,7 @@
 -- {-# OPTIONS --warn=noUserWarning #-}
 module _ where
 
-open import Grad
+open import AD.Grad
 
 module Optimise where
   open import Lang
@@ -203,7 +203,7 @@ module Extract where
   -- and generates the Futhark code for the variable names
   -- passed through NamedEnv
   pp : E Γ (ar s) → NamedEnv Γ → String
-  pp e ρ = ee-fut ({- env-norm-lets $ -} grad e 𝟙 zero-ee) ρ
+  pp e ρ = ee-fut ({- env-norm-lets $ -} grad′ e 𝟙 zero-ee) ρ
 
   -- nodedup-pp : E Γ (ar s) → NamedEnv Γ → String
   -- nodedup-pp e ρ = nodedup-ee-fut ({- env-norm-lets $ -} grad e one zero-ee) ρ
@@ -244,10 +244,10 @@ module Extract where
     ee-pretty e ρ = pretty-ee (ee-clean e) ρ
 
     pretty : E Γ (ar s) → NamedEnv Γ → String
-    pretty e ρ = ee-pretty ({- env-norm-lets $ -} grad (multiopt e OPT) 𝟙 zero-ee) ρ
+    pretty e ρ = ee-pretty ({- env-norm-lets $ -} grad′ (multiopt e OPT) 𝟙 zero-ee) ρ
 
     seed-pretty : E Γ (ar s) → E Γ (ar s) → NamedEnv Γ → String
-    seed-pretty e s ρ = ee-pretty ({- env-norm-lets $ -} grad e s zero-ee) ρ
+    seed-pretty e s ρ = ee-pretty ({- env-norm-lets $ -} grad′ e s zero-ee) ρ
 
   open Primitives
   open Microgpt
@@ -262,7 +262,7 @@ module Extract where
       (ε ▹ "wp" ▹ "wkey" ▹ "wqry" ▹ "wval" ▹ "wo"
          ▹ "mask" ▹ "wu" ▹ "wd" ▹ "wc" ▹ "ws" ▹ "target")
 
-  grad-bgpt-loss-e = ee-OPT $ ee-dedup $ ee-OPT (grad bgpt-loss-e 𝟙 zero-ee)
+  grad-bgpt-loss-e = ee-OPT $ ee-dedup $ ee-OPT (grad′ bgpt-loss-e 𝟙 zero-ee)
 
   grad-bgpt-loss-s : String
   grad-bgpt-loss-s = pp bgpt-loss-e
