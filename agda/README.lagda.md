@@ -105,29 +105,32 @@ import Eval
 
 One of the main reasons to define the DSL in the first place is
 the ability to perform automatic differentiation internally within
-Agda.  This is done in file `Grad.agda` (note that some two of the
-definitions are marked as terminating, because Agda's termination
-checker does not see that they are safe; termination of these
-definitions is given in the file `GradTerm.agda`).
+Agda.  This is done in the directory `AD/`; the header of `AD.agda`
+describes the files, the design decisions and the main theorems.
 
 ```
-open import Grad
-open import GradTerm renaming (grad to term-grad)
+open import AD
 ```
 
-AD is defined in reverse mode as a function from the DSL expression 
-(e : E Γ (ar s)), seed value (s : E Γ (ar s)) and the inital environment
-(EE Γ Γ) into the environment (EE Γ Γ).  The environment EE Γ Δ is a list
-of (E Δ)s of the types given by Γ.  Environment keeps the
-values of partial derivatives of all the variables in the context Γ,
-at it is set to all zeroes at the initial call.
+AD is defined in reverse mode (`grad` in `AD/Grad.agda`, a vjp) as a
+function from the DSL expression (e : E Γ (ar s)), the seed
+(s : E Γ (ar s)) and the initial environment (EE Γ Γ) into the
+environment (EE Γ Γ); the top-level entry point is `grad′`.  The
+environment EE Γ Δ holds the partial derivatives of all the variables
+in the context Γ, and it is set to all zeroes at the initial call.
 
 The interesting feature of the environment construction is that additionally
 to the values, we keep a chain of `let`s that make it possible to share
 computations that may be reused in the environment elements.  This is
 important for performance reasons.
 
-The core gradient computation is rather short, taking about 30 lines of code.
+The correctness of AD is proven against the semantics of E
+(module `Correctness` in `AD.agda`): `grad` computes the transposed
+Jacobian of the expression applied to the seed (`grad-correct`), and the
+Jacobian is the derivative computed by evaluating the expression over
+dual numbers.  Combined, `grad` passes the dot-product test against
+dual numbers (`grad-dual`): pairing the gradient with any direction
+gives the seed paired with the forward derivative in that direction.
 
 ## Optimisation
 
