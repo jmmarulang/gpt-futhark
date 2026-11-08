@@ -397,7 +397,6 @@ in (dws, dwp, dwqry, dwkey, dwval, dwo, dwu, dwd, dwc)
 
 module nn64 = nn f64
 
--- let bs : i64 = bs
 let sl : i64 = 16
 let ed : i64 = 16
 let ah : i64 = 4
@@ -580,46 +579,15 @@ def cal_step [bs] (dl : i64) (p : params) (mp : params) (vp : params)
   in (p', mp', vp')
 
 entry train [bs] [steps] (p : params) (mp : params) (vp : params)
-  (masks : [steps][sl][sl]f64) (dls  : [steps]i64)
+  (mask : [sl][sl]f64)
   (batches  : [steps][bs][sl]i64) =
   let (new_p, new_mp, new_vp) =
     loop (p', mp', vp') = (p, mp, vp)
     for step < steps do
-      let dl = dls[step]
       let batch = batches[step]
-      let mask = masks[step]
-      let (p', mp', vp') = (cal_step dl p' mp' vp' batch mask step steps)
+      let (p', mp', vp') = (cal_step sl p' mp' vp' batch mask step steps)
       in (p', mp', vp')
   in ((from_params new_p), (from_params new_mp), (from_params new_vp))
-
--- def cal_step_verbose (dl : i64) (p : params) (mp : params) (vp : params)
---   (batch : [bs][sl]i64) (mask : [sl][sl]f64)
---   (step : i64) steps :
---   (params,  params,  params , f64) =
---   let loss = loss dl p batch mask
---   -- cal gradient
---   let (dwt, dwp, dwqry, dwkey, dwval, dwo, dwu, dwd, dwc) =
---     grad dl p batch mask
---   let dp = to_params dwt dwp dwqry dwkey dwval dwo dwu dwd dwc
---   -- cal new model weights
---   let (p', mp', vp') =
---     adam_opt p mp vp dp step steps
---   in (p', mp', vp', loss)
-
--- entry train_verbose [steps] (p : params) (mp : params) (vp : params)
---   (masks : [steps][sl][sl]f64) (dls  : [steps]i64)
---   (batches  : [steps][bs][sl]i64) =
---   let losses = imap1 steps (\_ -> 0)
---   let (new_p, new_mp, new_vp, new_losses) =
---     loop (p', mp', vp', losses') = (p, mp, vp, losses)
---     for step < steps do
---       let dl = dls[step]
---       let batch = batches[step]
---       let mask = masks[step]
---       let (p', mp', vp', loss) = (cal_step_verbose dl p' mp' vp' batch mask step steps)
---       let losses' = copy losses' with [step] = loss
---       in (p', mp', vp', losses')
---   in ((from_params new_p), (from_params new_mp), (from_params new_vp), new_losses)
 
 entry zero_params : params =
   let wt = imap2 vo ed (\_ _ -> 0)

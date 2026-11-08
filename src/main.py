@@ -195,16 +195,10 @@ print("torch training time", end - start)
 print("Training Futhark")
 
 #Preprocessing
-# To store attention masks
-# In practice, due to padding, its always the same
-masks = np.zeros((n_batch, seq_size, seq_size)).astype(fdtype)
-# Size of each document in a batch
-# In practice, due to padding, its always seq_size
-dls = seq_size*np.ones((n_batch)).astype(np.int64)
-# To store batches
+# All batches
 batches = np.zeros((n_batch, batch_size, seq_size)).astype(np.int64, copy=False)
-for step in range(n_batch):
-    masks[step] = -1*big_num*cau_mask
+# Attention mask
+mask = -1*big_num*cau_mask
 
 # We use batch_offsets to avoid adding an extra loop that extracts the batches
 batch_offsets = np.arange(batch_size)
@@ -216,8 +210,7 @@ with futhark_server.Server(futhark) as server:
     server.cmd_call('to_params', 'p', *fwdic.keys())
     server.cmd_call('zero_params', 'mp')
     server.cmd_call('zero_params', 'vp')
-    server.put_value('masks', masks)
-    server.put_value('dls', dls)
+    server.put_value('mask', mask)
 
     for step in range(n_batch):
         batches[step] = futhark_data[(batch_offsets + step * batch_size) % len(docs)]
@@ -225,8 +218,7 @@ with futhark_server.Server(futhark) as server:
     server.put_value('batches', batches)
     # Start timer
     start = time.time()
-    server.cmd_call('train', 'p_mp_vp', 'p', 'mp', 'vp', 'masks',
-                    'dls', 'batches')
+    server.cmd_call('train', 'p_mp_vp', 'p', 'mp', 'vp', 'mask', 'batches')
     # End timer
     end = time.time()
     p_mp_vp = server.get_value('p_mp_vp')
