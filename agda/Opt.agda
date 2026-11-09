@@ -130,6 +130,8 @@ module Opt (r : Real) (rp : RealProp r) where
         ... | no _ = +-neutʳ
       ... | _ | _ = zero-but (var i) (var j) x ⊞ zero-but (var i′) (var j′) x′
         , λ ρ k → cong₂ _+_ (ap ρ k) (bp ρ k)
+    ... | ⊞ₒ | zero-but (var i) (var j) a′ , ap | b , bp = zero-but (var i) (var j) (a′ ⊞ b) , {!   !}
+    ... | ⊞ₒ | a , ap | zero-but (var i) (var j) b′ , bp = zero-but (var i) (var j) (a ⊞ b′) , {!   !}
     -- default
     ... | ⊞ₒ | a , ap | b , bp = a ⊞ b
       , λ ρ j → cong₂ _+_ (ap ρ j) (bp ρ j)
