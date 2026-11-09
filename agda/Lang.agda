@@ -674,7 +674,6 @@ module Primitives where
                 → E Γ $ ar $ (sl ⊗ ed)
                 → E Γ $ ar $ (sl ⊗ vo)
     gpt-forward {sl} {ed} {ah} {hd} {fd} {vo} sc θ ws =
-      -- Let wj := (⟨ θ .wp ⟩ ⊞_) ws In
       Let x₀ := (m-rmsnorm {sl}) ((⟨ θ .wp ⟩ ⊞_) ws) In
       Let x₁ := (m-rmsnorm {sl}) x₀ In
       Let q  := (map {sl} (linear ⟨ θ .wqry ⟩ 𝟘)) x₁ In
@@ -684,8 +683,9 @@ module Primitives where
         ((trₗ {sl} {ah}) ((map {sl} (split (θ .att-eq))) q))
         ((trₗ {sl} {ah}) ((map {sl} (split (θ .att-eq))) k))
         ((trₗ {sl} {ah}) ((map {sl} (split (θ .att-eq))) v)) In
-      Let battn := (trₗ {ah} {sl}) sattn In
-      Let x₂ := x₀ ⊞ ((map {sl} (linear ⟨ θ .wo ⟩ 𝟘)) ((map {sl} $ cat (θ .att-eq)) battn)) In
+      -- Let battn := (trₗ {ah} {sl}) sattn In
+      Let attn := (map {sl} $ cat (θ .att-eq)) ((trₗ {ah} {sl}) sattn) In
+      Let x₂ := x₀ ⊞ ((map {sl} (linear ⟨ θ .wo ⟩ 𝟘)) attn) In
       Let x₃ := (m-rmsnorm {sl}) x₂ In
       Let rl := relu ((map {sl} (linear ⟨ θ .wu ⟩ 𝟘)) x₃) In
       Let x₄ := x₂ ⊞ ((map {sl} (linear ⟨ θ .wd ⟩ 𝟘)) rl) In

@@ -38,7 +38,7 @@ stoi = {ch: i for i, ch in reversed(list(enumerate(vocab)))} # tokenizer
 # To play around with
 aot_compile = True # If true, torch model is compiled ahead of time
 batch_size = 50 # number of sequences per batch
-n_batch = 100 # number of batches
+n_batch = 10000 # number of batches
 
 # -------------------------------------
 # FIXED HYPERPARAMETERS
