@@ -22,8 +22,6 @@ module Optimise where
   doopt : E Γ is → E Γ is
   doopt e = danger-opt e
 
-    -- (opt e .proj₁)
-
   multiopt : E Γ is → ℕ → E Γ is
   multiopt e 0 = e
   multiopt e (suc n) = doopt (multiopt e n)
@@ -107,7 +105,6 @@ module Extract where
   ... | _ | _ | 𝟘 = ee-sub δ (sub-id ▹ 𝟘)
   ... | _ | _ | 𝟙 = ee-sub δ (sub-id ▹ 𝟙)
   ... | 1 | 1 | _ = ee-sub δ (sub-id ▹ inline e)
-  -- ... | 1 | 0 | _ = ee-sub δ (sub-id ▹ inline e)
   ... | _ | _ | _ = let′ (inline e) δ
 
   env-replace : Env Γ Δ → (a b : E Δ is) → Env Γ Δ

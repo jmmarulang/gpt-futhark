@@ -1,6 +1,4 @@
 import numpy as np
-import matplotlib.pyplot as plt
-import python.microgpt_lib as mp
 import time
 import random
 import futhark_server
@@ -21,74 +19,94 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 tdtype = torch.float64
 fdtype = np.float64
 
-# Data
+# -------------------------------------
+# DATA
 file = open('input-mgpt/input.txt')
 docs = [line.strip() for line in file if line.strip()]
 random.shuffle(docs)
 
-# Tokenizer
+# -------------------------------------
+# TOKENIZER
 uchars = sorted(set(''.join(docs)))
-BOS = len(uchars)
-bos = "_"
-vocab_size = len(uchars) + 1
-vocab = uchars + [bos]
-stoi = {ch: i for i, ch in reversed(list(enumerate(vocab)))} # first occurrence wins, like vocab.index
+bos = "_" # Padding
+BOS = len(uchars) # Padding token
+vocab = uchars + [bos] # vocabulary including the padding token
+stoi = {ch: i for i, ch in reversed(list(enumerate(vocab)))} # tokenizer
 
-# Initialize the parameters, to store the knowledge of the model
-matrix_type = 'rand'
-steps = 10000
-bs = 50
+# -------------------------------------
+# TOGGLE HYPERPARAMETERS
+# To play around with
 aot_compile = True # If true, torch model is compiled ahead of time
-iters = bs * steps
-ed = 16     # width of the network (embedding dimension)
-sl = 16 # maximum context length of the attention window (note: the longest name is 15 characters)
-ah = 4      # number of attention heads
-hd = ed // ah # derived dimension of each head
-big_num = 1000000000000000000000000000000000000000000000000000000000000000
+batch_size = 50 # number of sequences per batch
+n_batch = 10000 # number of batches
 
-print("batch size", bs)
-print("number of steps", steps)
-print("number of documents", iters)
+# -------------------------------------
+# FIXED HYPERPARAMETERS
+# These are static in Futhark
+n_embd = 16     # width of the network (embedding dimension)
+seq_size = 16   # maximum context length of the attention window
+n_head = 4      # number of attention heads
+n_layer = 1     # number of layers
+vocab_size = len(uchars) + 1 # vocabulary size including the padding token
+head_dim = n_embd // n_head # derived dimension of each head
+n_seq = batch_size * n_batch # derived total number of processed sequences
+big_num = 1000000000000000000000000000000000000000000000000000000000000000 # for the attention mask
+# Parameters for the adam optimizer
+learning_rate = 0.01
+betas = (0.85, 0.99)
+eps = 1e-8
 
-# Tokenization and Padding
+print("number of processed documents", n_seq)
+print("batch size", batch_size)
+print("number of batches", n_batch)
+
+# -------------------------------------
+# TOKENIZATION AND PADDING
+# Each batch must contain names of the same length
+# To deal with this, we add padding such that all names are of length seq_size
 for i in range(len(docs)):
     doc = docs[i % len(docs)]
-    doc = doc[:sl - 2]
+    doc = doc[:seq_size - 2]
     dl = len(doc) + 2
     doc = bos + doc + bos
-    doc = doc + (bos * (sl - dl))
+    doc = doc + (bos * (seq_size - dl))
     docs[i] = doc
-    assert len(docs[i]) == sl
+    assert len(docs[i]) == seq_size
 data = [[stoi[ch] for ch in doc] for doc in docs]
 torch_data = torch.tensor(data, dtype=torch.long, device=device)
 futhark_data = np.array(data)
 
 # -------------------------------------
 # DEFINE TORCH MODEL
+# If cuda is available, use it. Otherwise use cpu.
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-torch_model = mt.GPT().to(device=device, dtype=tdtype)
-learning_rate = 0.01
+# Define the model
+torch_model = mt.GPT(n_head, head_dim, seq_size, vocab_size, n_embd, n_layer).to(device=device, dtype=tdtype)
 
+# Define optimizer and scheduler
 optimizer = torch.optim.Adam(
-    torch_model.parameters(), lr=learning_rate, betas=(0.85, 0.99), eps=1e-8,
+    torch_model.parameters(), lr=learning_rate, betas=betas, eps=eps,
         fused=device.type == 'cuda')
 scheduler = torch.optim.lr_scheduler.LinearLR(
-    optimizer, start_factor=1.0, end_factor=0.0, total_iters=steps)
+    optimizer, start_factor=1.0, end_factor=0.0, total_iters=n_batch)
 
+# Non-ahead of time compilation
 train_model = torch.compile(torch_model,mode='reduce-overhead', fullgraph=True)
 
 # -------------------------------------
 # EXTRACT WEIGHTS
+# When we define the torch model, random weights are instanciated.
+# We extract them and use them for futhark as well
 
 twdict = torch_model.state_dict().copy()
 for k , t in twdict.items():
-    twdict[k] = t.numpy().astype(fdtype)
+    twdict[k] = t.cpu().numpy().astype(fdtype)
 
-fdimdic = {'wt' : (vocab_size, ed), 'wp' : (sl, ed),
-          'wqry' : (ed, ed), 'wkey' : (ed, ed), 'wval' : (ed, ed),
-          'wo' : (ed, ed), 'wu' : (4 * ed, ed), 'wd' :(ed, 4 * ed),
-          'wc': (vocab_size, ed)}
+fdimdic = {'wt' : (vocab_size, n_embd), 'wp' : (seq_size, n_embd),
+          'wqry' : (n_embd, n_embd), 'wkey' : (n_embd, n_embd), 'wval' : (n_embd, n_embd),
+          'wo' : (n_embd, n_embd), 'wu' : (4 * n_embd, n_embd), 'wd' :(n_embd, 4 * n_embd),
+          'wc': (vocab_size, n_embd)}
 
 fwdic = {}
 fmdic = {}
@@ -99,7 +117,7 @@ for k , dim in fdimdic.items():
     fmdic[k] = np.zeros(dim)
     fvdic[k] = np.zeros(dim)
 
-qkv = np.reshape(twdict['blocks.0.sa_heads.qkv.weight'], (3, ed, ed))
+qkv = np.reshape(twdict['blocks.0.sa_heads.qkv.weight'], (3, n_embd, n_embd))
 fwdic['wqry'][:,:] = qkv[0]
 fwdic['wkey'][:,:] = qkv[1]
 fwdic['wval'][:,:] = qkv[2]
@@ -110,26 +128,27 @@ fwdic['wu'][:,:]   = twdict['blocks.0.ffwd.net.0.weight']
 fwdic['wd'][:,:]   = twdict['blocks.0.ffwd.net.2.weight']
 fwdic['wc'][:,:]   = twdict['lm_head.weight']
 
-ones = np.ones((sl,sl))
+ones = np.ones((seq_size,seq_size))
 cau_mask = (ones - np.tril(ones))
 
-# # # -------------------------------------
-# # # TRAINING TORCH
+# -------------------------------------
+# TRAINING TORCH
 
-losses_dev = torch.zeros(steps, dtype=tdtype, device=device)
-batch_offsets = torch.arange(bs, device=device)
+# We use batch_offsets to avoid adding an extra loop that extracts the batches
+batch_offsets = torch.arange(batch_size, device=device)
 
+# Compile ahead of time?
 if aot_compile:
     print("Compiling Torch")
     start = time.time()
+    # Torch asks for example inputs to compile ahead of time
     example_batch = torch.randint(
-        0, vocab_size, (bs, sl -1), dtype=torch.long
+        0, vocab_size, (batch_size, seq_size -1), dtype=torch.long, device=device
     )
-
     example_target = torch.randint(
-        0, vocab_size, (bs, sl -1), dtype=torch.long
+        0, vocab_size, (batch_size, seq_size -1), dtype=torch.long, device=device
     )
-
+    # Compiled forward pass
     compiled_fn = train_model.forward.aot_compile(
         ((example_batch, example_target), {})
     )
@@ -139,63 +158,68 @@ if aot_compile:
 print("Training Torch")
 
 torch_model.train()
+# Start timer
 start = time.time()
-n = sl - 1
-for step in range(steps):
-    # same docs, in the same order, as the original per-step loop
-    seqs = torch_data[(batch_offsets + step * bs) % len(docs)]
+# Each sequence is of length seq_size - 1.
+# This is so the target does not go out of index bounds
+n = seq_size - 1
+# For each batch...
+for step in range(n_batch):
+    # Get a batch and a target
+    seqs = torch_data[(batch_offsets + step * batch_size) % len(docs)]
     batch = seqs[:, :n].contiguous()
     target = seqs[:, 1:n+1].contiguous()
 
+    # Forward pass
     torch.compiler.cudagraph_mark_step_begin()
     if aot_compile:
         _, loss = compiled_fn(torch_model, batch, target)
     else:
         _, loss = train_model(batch, target)
 
+    # Backpropagation
     optimizer.zero_grad(set_to_none=True)
     loss.backward()
-    losses_dev[step] = loss.detach()
+    # Optimization
     optimizer.step()
     scheduler.step()
 
 if device.type == 'cuda':
     torch.cuda.synchronize()
+# End timer
 end = time.time()
-torch_losses = losses_dev.double().cpu().numpy()
 print("torch training time", end - start)
 
 # # -------------------------------------
 # # TRAINING FUT
 print("Training Futhark")
 
-futhark_losses = np.zeros((steps)).astype(fdtype)
-masks = np.zeros((steps, sl, sl)).astype(fdtype)
-dls = sl*np.ones((steps)).astype(np.int64)
-batches = np.zeros((steps, bs, sl)).astype(np.int64, copy=False)
-
 #Preprocessing
-for step in range(steps):
-    masks[step] = -1*big_num*cau_mask
+# All batches
+batches = np.zeros((n_batch, batch_size, seq_size)).astype(np.int64, copy=False)
+# Attention mask
+mask = -1*big_num*cau_mask
 
-batch_offsets = np.arange(bs)
+# We use batch_offsets to avoid adding an extra loop that extracts the batches
+batch_offsets = np.arange(batch_size)
 
+# Call server and put values
 with futhark_server.Server(futhark) as server:
     for k , data in fwdic.items():
         server.put_value(k, data)
     server.cmd_call('to_params', 'p', *fwdic.keys())
     server.cmd_call('zero_params', 'mp')
     server.cmd_call('zero_params', 'vp')
-    server.put_value('masks', masks)
-    server.put_value('dls', dls)
+    server.put_value('mask', mask)
 
-    # start timer
-    start = time.time()
-    for step in range(steps):
-        batches[step] = futhark_data[(batch_offsets + step * bs) % len(docs)]
+    for step in range(n_batch):
+        batches[step] = futhark_data[(batch_offsets + step * batch_size) % len(docs)]
+
     server.put_value('batches', batches)
-    server.cmd_call('train', 'p_mp_vp', 'p', 'mp', 'vp', 'masks',
-                    'dls', 'batches')
+    # Start timer
+    start = time.time()
+    server.cmd_call('train', 'p_mp_vp', 'p', 'mp', 'vp', 'mask', 'batches')
+    # End timer
     end = time.time()
     p_mp_vp = server.get_value('p_mp_vp')
 
@@ -206,34 +230,27 @@ for i , k in enumerate(fdimdic.keys()):
     fmdic[k] = p_mp_vp[i + 9]
     fmdic[k] = p_mp_vp[i + 18]
 
-try:
-    np.save("fwdic.npy", fwdic, allow_pickle=True)
-    file = open('fwdic.txt', 'wt')
-    file.write(str(fwdic))
-    file.close()
-except :
-    print("It refused")
-
 #-------------------------------------
 # PROBS
+# Do a forward pass to check the results match
 
 # input
 doc = "marulanda"
-doc = doc[:sl - 2]
+doc = doc[:seq_size - 2]
 dl = len(doc) + 2
 doc = bos + doc + bos
-doc = doc + (bos * (sl - dl))
+doc = doc + (bos * (seq_size - dl))
 dl = len(doc)
-assert dl == sl
+assert dl == n_embd
 print("".join(doc))
 # sequence ids
 python_tokens = [vocab.index(ch) for ch in doc]
-torch_tokens = np.array([python_tokens for _ in range(bs)])
+torch_tokens = np.array([python_tokens for _ in range(batch_size)])
 # to numpy
-futhark_tokens = np.zeros((bs, sl)).astype(np.int64)
+futhark_tokens = np.zeros((batch_size, n_embd)).astype(np.int64)
 futhark_tokens[:,:] = torch_tokens
 
-pad_mask = np.ones((sl,sl))
+pad_mask = np.ones((n_embd,n_embd))
 for i in range(dl):
     pad_mask[i][ 0 : dl] = 0
 
@@ -254,10 +271,10 @@ with futhark_server.Server(futhark) as server:
     futhark_logits = server.get_value('flogits')
     futhark_loss = server.get_value('floss')
 futhark_logits = futhark_logits[:,:-1]
-futhark_probs =npsoftmax(futhark_logits, 1)
+futhark_probatch_size =npsoftmax(futhark_logits, 1)
 
 #### Torch
-n = sl - 1
+n = seq_size - 1
 torch_target = torch_tokens[:,1:n+1]
 torch_model.eval()
 with torch.no_grad():
@@ -266,33 +283,9 @@ with torch.no_grad():
     torch_logits, torch_loss = torch_model(x , y)
 torch_logits = torch_logits .cpu().numpy()
 torch_loss = torch_loss .cpu().numpy()
-torch_probs =npsoftmax(torch_logits, 1)
+torch_probatch_size =npsoftmax(torch_logits, 1)
 #-------------------------------------
 # TESTS
 
 print("futhark loss", futhark_loss)
 print("torch   loss", torch_loss)
-
-# #-------------------------------------
-# # # PLOTS
-
-# #### Probs
-# while True:
-#     bindex = int(input("batch <- "))
-#     if bindex == -1: break
-#     pindex = int(input("position <- "))
-
-#     barWidth = 0.25
-#     futhark_sample = futhark_probs[bindex, pindex]
-#     torch_sample = torch_probs[bindex, pindex]
-
-#     br1 = np.arange(len(torch_sample))
-#     br2 = [x + barWidth for x in br1]
-#     br3 = [x + barWidth for x in br2]
-#     plt.bar(br1, futhark_sample, width=barWidth, label="futhark")
-#     plt.bar(br2, torch_sample, width=barWidth, label="torch")
-#     plt.xticks([r + barWidth for r in range(len(torch_sample))], vocab)
-#     plt.xlabel('next token probability', fontsize = 12)
-#     plt.legend()
-#     # plt.savefig('figures/main_' + "".join(doc) + "_pindex_" + str(pindex) + "_seed_" + str(seed) + "_iter_" + str(steps) + "_matrix_" + str(matrix_type) +  '_.png')
-#     plt.show()

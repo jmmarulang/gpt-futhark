@@ -58,9 +58,6 @@ module Eval (r : Real) where
   eval (selb x e e₁) ρ = Ar.selb (eval e ρ) x (eval e₁ ρ)
   eval (sum e) ρ = Ar.sum (Ar.zipWith _+_) (Ar.K (fromℕ 0)) (λ i → eval e (ρ , i))
   eval (zero-but e e₁ e₂) ρ = zb (eval e ρ) (eval e₁ ρ) (eval e₂ ρ)
-  -- eval (E.slide e x e₁ x₁) ρ = Ar.slide (eval e ρ) x (eval e₁ ρ) x₁
-  -- eval (E.backslide e e₁ x x₁) ρ = Ar.backslide (eval e ρ) (eval e₁ ρ) x (fromℕ 0) x₁
-  -- eval (logi e) ρ = Ar.map logisticʳ (eval e ρ)
   eval (e ⊞ e₁) ρ = Ar.zipWith _+_ (eval e ρ) (eval e₁ ρ)
   eval (e ⊠ e₁) ρ = Ar.zipWith _*_ (eval e ρ) (eval e₁ ρ)
   eval (scaledown x e) ρ = Ar.map (_÷ fromℕ x) (eval e ρ)

@@ -41,6 +41,7 @@ data Tab (Θ : FCtx) : S → Set where
   lets : F Θ p → Tab (Θ ▹ ar p) s → Tab Θ s
   ilet : I Θ n → Tab (Θ ▹ ix n) s → Tab Θ s
   elem : F Θ [] → Tab Θ []
+  -- JAIRO: Why loop and not imap?
   loop : Tab (Θ ▹ ix n) s → Tab Θ (n ∷ s)
 
 reify : Tab Θ s → F Θ s
@@ -60,6 +61,7 @@ eta : F Θ s → Tab Θ s
 eta {s = []} a = elem a
 eta {s = n ∷ s} a = loop (eta (sel (wkᶠ ↑ a) (var here)))
 
+-- JAIRO: Redundant?
 konst : Kop → Tab Θ s
 konst {s = []} o = elem (kop o)
 konst {s = n ∷ s} o = loop (konst o)
@@ -67,6 +69,8 @@ konst {s = n ∷ s} o = loop (konst o)
 -- Apply a scalar transformation to every element.  The transformation
 -- is given in every context that extends Θ₀, as it is applied under
 -- the binders of the Tab.
+-- JAIRO: Type of the functional argument seems odd.
+--        Why do you need the weakening?
 mapT : Θ₀ ⊆ᶠ Θ → (∀ {Φ} → Θ₀ ⊆ᶠ Φ → F Φ [] → F Φ []) → Tab Θ s → Tab Θ s
 mapT w f (lets a t) = lets a (mapT (skip w) f t)
 mapT w f (ilet i t) = ilet i (mapT (skip w) f t)
@@ -159,6 +163,7 @@ selbCore {q = q} pf is w t =
 
 -- Softmax, with the elements fused into its body; the result is
 -- materialised, as every element depends on all of them.
+-- JAIRO: Why the weakening?
 smCore : Θ₀ ⊆ᶠ Φ → Tab Φ s → Tab Φ s
 smCore {s = s} _ t =
   lets (softmax (reify (selAll (wkT (wk▹▹ {s = s} ⊆ᶠ-eq) t) (vars s)))) (eta (var here))
@@ -180,6 +185,7 @@ wkV : Θ ⊆ᶠ Φ → Val Θ is → Val Φ is
 wkV {is = ix s} w v = wkIdx w v
 wkV {is = ar s} w v = wkT w v
 
+-- JAIRO: Why w?
 wkEnv : Θ ⊆ᶠ Φ → Env Θ Γ → Env Φ Γ
 wkEnv w ε = ε
 wkEnv w (σ ▹ v) = wkEnv w σ ▹ wkV w v
@@ -225,6 +231,7 @@ idEnv {ε} = ε
 idEnv {Γ ▹ ar s} = wkEnv ↑ idEnv ▹ eta (var here)
 idEnv {Γ ▹ ix s} = under s idEnv (vars s)
 
+-- JAIRO: WOW
 compile-top : E Γ (ar s) → F ⌊ Γ ⌋ s
 compile-top e = reify (compile e idEnv)
 

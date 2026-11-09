@@ -55,18 +55,22 @@ data I (Γ : FCtx) : ℕ → Set where
   mod  : ∀ m → I Γ (m * n) → I Γ n
   comb : I Γ m → I Γ n → I Γ (m * n)
 
+-- JNOTE: No types?
 -- Array expressions of shape s.
 data F (Γ : FCtx) : S → Set where
   var     : ar s ∈ Γ → F Γ s
   kop     : Kop → F Γ []
   uop     : Uop → F Γ [] → F Γ []
   bop     : Bop → F Γ [] → F Γ [] → F Γ []
+  -- JAIRO: Weird implementation of softmax. Is it benefitial?
   softmax : F (Γ ▹▹ s) [] → F Γ s              -- softmax over s of the elements
   imap    : F (Γ ▹ ix n) s → F Γ (n ∷ s)
   sum     : F (Γ ▹ ix n) [] → F Γ []
   sel     : F Γ (n ∷ s) → I Γ n → F Γ s
+  -- JAIRO: Index intead of index expression? Could be index expression if F took FTy as a parameter
   ifeq    : I Γ n → I Γ n → F Γ [] → F Γ []    -- if i == j then e else 0
   let′    : F Γ p → F (Γ ▹ ar p) s → F Γ s
+  -- JAIRO: Why? Why not overload let instead?
   ilet    : I Γ n → F (Γ ▹ ix n) s → F Γ s
 
 -- Weakening

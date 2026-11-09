@@ -163,15 +163,17 @@
 --
 -- 6. Turn the examples (sum over lets, sum of an imap, softmax of a let,
 --    the GPT forward pass) into refl regression tests.
+
+{-# OPTIONS  --backtracking-instance-search #-}
 module Backend.Futhark where
 
 open import Data.Nat using (ℕ; suc)
 open import Data.Nat.Show using () renaming (show to show-nat)
 open import Data.String using (String; _++_)
-open import Data.List using (_∷_)
+open import Data.List using (_∷_ ; [])
 
 open import Ar using (S)
-open import Lang using (Ctx; IS; ix; ar; E; ε; _▹_)
+open import Lang hiding (Γ ; is) --using (Ctx; IS; ix; ar; E; ε; _▹_; sels)
 open import Backend.Futhark.Syntax using (FCtx; _▹▹_)
 import Backend.Futhark.Print as P
 
@@ -203,3 +205,14 @@ toNames (_▹_ {is = ix s} ν x) = ixNames s 0 x (toNames ν)
 -- The Futhark expression for e, given names for its free variables.
 toFuthark : E Γ (ar s) → Names Γ → String
 toFuthark e ν = show (compile-top e) (toNames ν)
+
+-- Jairo Made
+open Lang.Syntax
+
+test₄-e : E _ _
+test₄-e = Lcon (ar (5 ∷ []) ∷ []) (ar []) ε
+          λ a → Sum {5 ∷ []} λ i → Let x := sels a i In (x ⊞ x)
+
+test₄-s : String
+test₄-s = toFuthark test₄-e (ε ▹ "a")
+-- Result: "(isum1 5 (\\i0 -> (let x1 = a[i0] in (x1 F.+ x1))))"

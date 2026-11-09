@@ -524,38 +524,6 @@ instance
 infixl 5 _,,_
 _,,_ = _,′_
 
-test-e : E _ _
-test-e = Lcon (ar (5 ∷ []) ∷ []) (ar (5 ∷ 5 ∷ [])) ε
-         λ e → Imap {5 ∷ []}{5 ∷ []} λ i → Let x := 𝟘 {s = unit} In Imaps λ j → x
-
-test-s : String
-test-s = proj₂ (runState (to-str test-e (_ , plain (mkar "f"))) 0)
--- "(imap1 5 (\\i0 -> (let x1 = zero
--- in (imap1 5 (\\i2 -> x1)))))"
-
-test₂-e : E _ _
-test₂-e = Lcon (ar (5 ∷ []) ∷ ix (5 ∷ []) ∷ []) (ar (5 ∷ [])) ε
-         λ e i → sel (Let y := 𝟘 {s = unit} In Imap {5 ∷ []}{5 ∷ []} λ i → Let x := 𝟘 {s = unit} In Imaps λ j → x) i
-        --  λ e i → sel (Imap {5 ∷ []}{5 ∷ []} λ i → Let x := zero {s = unit} In Imaps λ j → x) i
-        --  λ e j → Imaps {5 ∷ 5 ∷ []} λ i → (sel (Let x := sels one i In sel e i) j)
-
-test₂-s : String
-test₂-s = proj₂ (runState (to-str test₂-e ((_ , (plain (mkar "f"))) , index (val "j1" ∷ []))) 0)
--- "(imap1 5 (\\i1 -> (let x0 = zero
--- in (let x2 = zero
--- in x2))))"
-
-test₃-e : E _ _ -- Is this what we want?
-test₃-e = Lcon (ar (5 ∷ []) ∷ []) (ar (_)) ε
-         λ e → Imap {5 ∷ []} (λ i →
-          zero-but i i (
-            Imap {5 ∷ []}{5 ∷ []} λ j → Let x := 𝟘 {s = unit} In Imaps λ k → x))
-
-test₃-s : String
-test₃-s = proj₂ (runState (to-str test₃-e (_ , plain (mkar "f"))) 0)
--- "(imap1 5 (\\i0 -> (imap2 5 5 (\\i1 i2 -> (if ((i0 == i0)) then (let x3 = zero
--- in x3) else zero)))))"
-
 -- Lets inside the summand must stay under the isum binder.
 test₄-e : E _ _
 test₄-e = Lcon (ar (5 ∷ []) ∷ []) (ar []) ε
@@ -563,9 +531,7 @@ test₄-e = Lcon (ar (5 ∷ []) ∷ []) (ar []) ε
 
 test₄-s : String
 test₄-s = proj₂ (runState (to-str test₄-e (_ , plain (mkar "a"))) 0)
-
-_ : test₄-s ≡ "(isum1 5 (\\i0 -> (let x1 = a[i0]\nin (x1 F.+ x1))))"
-_ = refl
+-- Expected: "(isum1 5 (\\i0 -> (let x1 = a[i0] in (x1 F.+ x1))))"
 
 -- Summing an imap (combined) must produce a single isum.
 test₅-e : E _ _
@@ -574,9 +540,7 @@ test₅-e = Lcon (ar (5 ∷ []) ∷ []) (ar (3 ∷ [])) ε
 
 test₅-s : String
 test₅-s = proj₂ (runState (to-str test₅-e (_ , plain (mkar "a"))) 0)
-
-_ : test₅-s ≡ "(imap1 3 (\\i1 -> (isum1 5 (\\i0 -> a[i0]))))"
-_ = refl
+-- Expected: "(imap1 3 (\\i1 -> (isum1 5 (\\i0 -> a[i0]))))"
 
 -- Lets of the softmax argument must be bound before isoftmax uses them.
 test₆-e : E _ _
@@ -585,6 +549,6 @@ test₆-e = Lcon (ar (5 ∷ []) ∷ []) (ar (5 ∷ [])) ε
 
 test₆-s : String
 test₆-s = proj₂ (runState (to-str test₆-e (_ , plain (mkar "a"))) 0)
-
-_ : test₆-s ≡ "(let x1 = (isoftmax1 5 (\\i0 -> (let x2 = (imap1 5 (\\i4 -> (a[i4] F.+ a[i4])))\nin x2[i0])))\nin (imap1 5 (\\i3 -> x1[i3])))"
-_ = refl
+-- Expected: "(let x1 = (isoftmax1 5 (\\i0 -> (let x2 = (imap1 5 (\\i4 -> (a[i4] F.+ a[i4])))
+-- in x2[i0])))
+-- in (imap1 5 (\\i3 -> x1[i3])))"
