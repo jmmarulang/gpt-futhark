@@ -39,12 +39,12 @@ record RealProp (r : Real) : Set where
     *-neutʳ : ∀ {x} → x * fromℕ 1 ≡ x
     *-nulˡ : ∀ {x} → fromℕ 0 * x ≡ fromℕ 0
     *-nulʳ : ∀ {x} → x * fromℕ 0 ≡ fromℕ 0
+    minus-+-push  : ∀ {x y} → ((- x) + (- y)) ≡ - (x + y)
     minus-*-pushʳ : ∀ {x y} → (x * (- y)) ≡ - (x * y)
     minus-*-pushˡ : ∀ {x y} → ((- x) * y) ≡ - (x * y)
     minus-invʳ : ∀ {x} → (- (- x)) ≡ x
     minus-idʳ : - fromℕ 0 ≡ fromℕ 0
     ÷-nul : ∀ {x} → (x ≡ fromℕ 0 → ⊥) → fromℕ 0 ÷ x ≡ fromℕ 0
-    *-÷-cut : ∀ {x y} → (x * (fromℕ 1 ÷ (x * y))) ≡ fromℕ 1 ÷ y -- wrong for x = 0
     fromℕ-inj : ∀ {x y} → (fromℕ x ≡ fromℕ y) → (x ≡ y)
-    +-medial : ∀ {x y z w } → x + y + (z + w) ≡ x + z + (y + w)
-    dist : ∀ {x y z} → x * (y + z) ≡ (x * y) + (x * z)
+    distˡ : ∀ {x y z} → x * (y + z) ≡ (x * y) + (x * z)
+    distʳ : ∀ {x y z} → (y + z) * x ≡ (y * x) + (z * x)

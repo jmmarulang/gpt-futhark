@@ -120,7 +120,8 @@ module Opt (r : Real) (rp : RealProp r) where
       ∙ sym (eval-wk (skip ⊆-eq) a _ _
       ∙ eval-cong a (wk-env-id) _
       ∙ cong (eval a _) (sym (splitP-eq {s = s} j)))) (bp _ _)
-    ... | ⊞ₒ | zero-but (var i) (var j) x , ap | zero-but (var i′) (var j′) x′ , bp = go where
+    ... | ⊞ₒ | zero-but (var i) (var j) x , ap | zero-but (var i′) (var j′) x′
+      , bp = go where
       go : _
       go with eq? i i′ | eq? j j′
       ... | veq | veq = zero-but (var i) (var j) (x ⊞ x′) , go₁ where
@@ -130,8 +131,6 @@ module Opt (r : Real) (rp : RealProp r) where
         ... | no _ = +-neutʳ
       ... | _ | _ = zero-but (var i) (var j) x ⊞ zero-but (var i′) (var j′) x′
         , λ ρ k → cong₂ _+_ (ap ρ k) (bp ρ k)
-    ... | ⊞ₒ | zero-but (var i) (var j) a′ , ap | b , bp = zero-but (var i) (var j) (a′ ⊞ b) , {!   !}
-    ... | ⊞ₒ | a , ap | zero-but (var i) (var j) b′ , bp = zero-but (var i) (var j) (a ⊞ b′) , {!   !}
     -- default
     ... | ⊞ₒ | a , ap | b , bp = a ⊞ b
       , λ ρ j → cong₂ _+_ (ap ρ j) (bp ρ j)
@@ -202,29 +201,56 @@ module Opt (r : Real) (rp : RealProp r) where
     ... | imapbₒ eq  | a , ap = La.imapb eq a
       , λ ρ j → ap (ρ , ix-div j eq) (ix-mod j eq)
   -- sum
-    ... | sumₒ {s = s} | e'@(a ⊠ b) , ap = go where
+    ... | sumₒ {s = s} | (a ⊠ b) , ap = go where
       go : _
       go with (stren-∃ a v₀) | (stren-∃ b v₀)
-      ... | just (c , ceq) | _ = c ⊠ La.sum b
+      ... | just (a′ , ceq) | _ = a′ ⊠ La.sum b
         , λ ρ i → let w = skip ⊆-eq in
         sum-inv _+_ (fromℕ 0) {λ j → eval e (ρ , j)} i
         ∙ sum-cong _+_ (fromℕ 0) (λ j →
           ap (ρ , j) i
           ∙ flip (cong₂ _*_) refl (
               cong (λ y → eval y (ρ , j) i) ceq
-              ∙ eval-wk w c _ _))
-        ∙ sum-const-out
-          {a = eval c (wk-env ⊆-eq ρ) i}
+              ∙ eval-wk w a′ _ _))
+        ∙ sum-const-outˡ
+          {a = eval a′ (wk-env ⊆-eq ρ) i}
           {b = λ j → eval b (ρ , j) i} (fromℕ 0)
           +-neutˡ
           (λ {x} → sym (*-nulʳ {x}))
-          (λ {_ _ z} → dist {_} {_} {z})
-        ∙ cong₂ _*_ (eval-cong c wk-env-id i)
+          (λ {_ _ z} → distˡ {_} {_} {z})
+        ∙ cong₂ _*_ (eval-cong a′ wk-env-id i)
           (sym (sum-inv _+_ (fromℕ 0) {a = λ j → eval b (ρ , j)} i))
 
-      ... | _ | just (d , deq) = (La.sum a) ⊠ d , {!   !}
-      ... | _ | _ = La.sum (a ⊠ b) , {!   !}
-    ... | sumₒ {s = s} | ⊟ a , ap = ⊟ (La.sum a) , {!   !}
+      ... | _ | just (b′ , beq) = (La.sum a) ⊠ b′
+        , λ ρ i → let w = skip ⊆-eq in
+        sum-inv _+_ (fromℕ 0) {λ j → eval e (ρ , j)} i
+        ∙ sum-cong _+_ (fromℕ 0) (λ j →
+          ap (ρ , j) i
+          ∙ cong₂ _*_ refl (
+            cong (λ y → eval y (ρ , j) i) beq
+            ∙ eval-wk w b′ _ _))
+        ∙ sum-const-outʳ
+          {a = eval b′ (wk-env ⊆-eq ρ) i}
+          {b = λ j → eval a (ρ , j) i} (fromℕ 0)
+          +-neutˡ (λ {x} → sym (*-nulˡ {x})) (λ {_ _ z} → distʳ {_} {_} {z})
+        ∙ cong₂ _*_
+          (sym (sum-inv _+_ (fromℕ 0) {a = λ j → eval a (ρ , j)} i))
+          (eval-cong b′ wk-env-id i)
+
+      ... | _ | _ = La.sum (a ⊠ b)
+        , λ ρ i →
+        sum-inv _+_ (fromℕ 0) {λ j → eval e (ρ , j)} i
+        ∙ sum-cong _+_ (fromℕ 0) {λ j → eval e (ρ , j) i} (λ j → ap (ρ , j) i)
+        ∙ sym (sum-inv _+_ (fromℕ 0)
+            {λ j → Ar.zipWith _*_ (eval a (ρ , j)) (eval b (ρ , j))} i)
+    ... | sumₒ {s = s} | ⊟ a , ap = ⊟ (La.sum a)
+      , λ ρ i →
+        sum-inv _+_ (fromℕ 0) {λ j → eval e (ρ , j)} i
+        ∙ sum-cong _+_ (fromℕ 0) (λ j → ap (ρ , j) i)
+        ∙ sum-linear-out {b = λ z → eval a (ρ , z) i} {f = -_} (fromℕ 0)
+          +-neutˡ (sym (minus-idʳ)) (sym minus-+-push)
+        ∙ cong -_ (sym (sum-inv _+_ (fromℕ 0) {a = λ j → eval a (ρ , j)} i))
+
     ... | sumₒ {s = s} | let′ {s = q} a b , ap = let′ (imap a) (La.sum {s = s} $ sub b $
       skeep (sdrop sub-id) ▹ sel (var v₁) (var v₀))
         , go where
