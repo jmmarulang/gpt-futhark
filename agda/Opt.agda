@@ -409,7 +409,6 @@ module Opt (r : Real) (rp : RealProp r) where
     ... | selsₒ | a , ap | i , ip = sels a i ,
       λ ρ j → ap ρ (eval e₁ ρ) ∙ cong (eval a ρ) (ip ρ)
   -- sel
-    ... | selₒ {q = q} refl | zero-but i j a , ap | k , kp = zero-but i j (sel a k) , {!   !}
     ... | selₒ refl | 𝟘 , ap | i , ip = 𝟘
       , λ ρ j → ap ρ (eval e₁ ρ ++ j)
     ... | selₒ refl | 𝟙 , ap | i , ip = 𝟙
@@ -436,6 +435,13 @@ module Opt (r : Real) (rp : RealProp r) where
         ∙ sym (cong (λ x → eval b _ (x ++ j)) (eval-wk (skip ⊆-eq) i _
         ∙ eval-cong i wk-env-id
         ∙ sym (ip _)))
+    ... | selₒ {q = q} refl | zero-but i j a , ap | k , kp = zero-but i j (sel a k)
+      , go where
+        go : _
+        go ρ w rewrite kp ρ | ap ρ (eval k ρ ++ w) with (eval i ρ) ≟ₚ (eval j ρ)
+        ... | yes _ = refl
+        ... | no _ = refl
+
     -- default
     ... | selₒ refl | a , ap | i , ip = sel a i
       , λ ρ j → ap ρ (eval e₁ ρ ++ j) ∙ cong (eval a ρ) (cong (_++ j) (ip ρ))

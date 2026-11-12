@@ -353,14 +353,13 @@ let dwkey = (imap1 16 (\i301 -> (imap1 16 (\i302 -> (isum1 bs (\i303 -> (isum1 1
 let dwqry = (imap1 16 (\i305 -> (imap1 16 (\i306 -> (isum1 bs (\i307 -> (isum1 16 (\i308 -> (x238[i307][i308][i305] F.* x92[i307][i308][i306])))))))))
 let dwval = (imap1 16 (\i309 -> (imap1 16 (\i310 -> (isum1 bs (\i311 -> (isum1 16 (\i312 -> (x228[i311][i312][i309] F.* x92[i311][i312][i310])))))))))
 let dwo = (imap1 16 (\i313 -> (imap1 16 (\i314 -> (isum1 bs (\i315 -> (isum1 16 (\i316 -> (x190[i315][i316][i313] F.* x126[i315][i316][i314])))))))))
--- let dmask = (imap1 16 (\i317 -> (imap1 16 (\i320 -> (isum1 bs (\i318 -> (isum1 4 (\i319 -> (x204[i318][i319][i317][i320] F.* (x218[i318][i319][i317][i320] F.+ (F.neg x223[i318][i319][i317])))))))))))
+let dmask = (imap1 16 (\i317 -> (imap1 16 (\i320 -> (isum1 bs (\i318 -> (isum1 4 (\i319 -> (x204[i318][i319][i317][i320] F.* (x218[i318][i319][i317][i320] F.+ (F.neg x223[i318][i319][i317])))))))))))
 let dwu = (imap1 64 (\i321 -> (imap1 16 (\i322 -> (isum1 bs (\i323 -> (isum1 16 (\i324 -> (((indicatorp (isum1 16 (\i325 -> (wu[i321][i325] F.* x135[i323][i324][i325])))) F.* x157[i323][i324][i321]) F.* x135[i323][i324][i322])))))))))
 let dwd = (imap1 16 (\i326 -> (imap1 64 (\i327 -> (isum1 bs (\i328 -> (isum1 16 (\i329 -> (x152[i328][i329][i326] F.* x142[i328][i329][i327])))))))))
 let dwc = (imap1 27 (\i330 -> (imap1 16 (\i331 -> (isum1 bs (\i332 -> (isum1 16 (\i333 -> (x81[i332][i333][i330] F.* x147[i332][i333][i331])))))))))
 let dws = (imap1 bs (\i334 -> (imap1 16 (\i335 -> (imap1 16 (\i336 -> (((x272[i334][i335][i336] F.* (one F./ x284[i334][i335])) F.+ ((wp[i335][i336] F.+ ws[i334][i335][i336]) F.* x294[i334][i335][i336])) F.+ (x294[i334][i335][i336] F.* (wp[i335][i336] F.+ ws[i334][i335][i336])))))))))
--- let dtarget = (imap3 bs 16 27 (\i337 i338 i339 -> (x61[i337][i338][i339] F.* (F.neg (F.log (let x341 = (isoftmax1 27 (\i340 -> x0[i337][i338][i340]))
--- in x341[i339]))))))
-
+let dtarget = (imap3 bs 16 27 (\i337 i338 i339 -> (x61[i337][i338][i339] F.* (F.neg (F.log (let x341 = (isoftmax1 27 (\i340 -> x0[i337][i338][i340]))
+in x341[i339]))))))
 
 in (dws, dwp, dwqry, dwkey, dwval, dwo, dwu, dwd, dwc)
 }
