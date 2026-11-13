@@ -15,8 +15,8 @@ class MultiHeadAttention(nn.Module):
         self.head_dim = head_dim
         self.n_emd = n_embd
         # all heads' q, k, v in one matmul instead of 3 * n_head small ones
-        self.qkv = nn.Linear(n_embd, 3 * n_head * head_dim, bias=False)
-        self.proj = nn.Linear(head_dim * n_head, n_embd, bias=False)
+        self.qkv = nn.Linear(n_embd, 3 * n_head * head_dim, bias=True)
+        self.proj = nn.Linear(head_dim * n_head, n_embd, bias=True)
 
     def forward(self, x):
         B, T, C = x.shape
@@ -35,9 +35,9 @@ class FeedForward(nn.Module):
         super().__init__()
         self.n_emd = n_embd
         self.net = nn.Sequential(
-            nn.Linear(n_embd, 4 * n_embd, bias=False),
+            nn.Linear(n_embd, 4 * n_embd, bias=True),
             nn.ReLU(),
-            nn.Linear(4 * n_embd, n_embd, bias=False),
+            nn.Linear(4 * n_embd, n_embd, bias=True),
         )
 
     def forward(self, x):
@@ -69,7 +69,7 @@ class GPT(nn.Module):
         self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
         self.position_embedding_table = nn.Embedding(seq_size, n_embd)
         self.blocks = nn.Sequential(*[Block(n_head, head_dim, n_embd) for _ in range(n_layer)])
-        self.lm_head = nn.Linear(n_embd, vocab_size, bias=False)
+        self.lm_head = nn.Linear(n_embd, vocab_size, bias=True)
 
         # Better init
         self.apply(self._init_weights)

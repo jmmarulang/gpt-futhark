@@ -321,6 +321,7 @@ def train(model:GPT, optimizer,  train_dataloader, val_dataloader,  epochs:int):
         epoch_loss = 0.0
 
         for step in range(steps_per_epoch):
+            print(step)
 
             x, y = train_dataloader.next_batch()
             x, y  = x.to(device), y.to(device) # (B, T)
@@ -359,16 +360,16 @@ def train(model:GPT, optimizer,  train_dataloader, val_dataloader,  epochs:int):
 
 
 # ===========================================================================================================
-block_size = 64
+block_size = 1
 
-batch_size  = 32
-epochs = 20
+batch_size  = 1
+epochs = 1
 learning_rate = 3e-4
 
-num_return_sequences = 15
-max_length = 80
+num_return_sequences = 1
+max_length = 1
 
-MODEL_PATH = 'models/gpt2.pt'
+MODEL_PATH = 'mgpt2.pt'
 
 config = GPTConfig()
 model = GPT(config)
@@ -385,15 +386,15 @@ if os.path.exists(MODEL_PATH):
 enc = tiktokenizer('gpt2')
 
 
-with open('data/english.txt', 'r', encoding='utf-8') as f:
+with open('data/shakespeare.txt', 'r', encoding='utf-8') as f:
     lines = f.read().splitlines()
 text = '<|endoftext|>'.join(lines)
 
 print(f"Total text : {len(text)}")
 
 # testing with sample of data
-# text = text[:100000]
-# print(f"Total text after truncating : {len(text)}")
+text = text[:100]
+print(f"Total text after truncating : {len(text)}")
 
 tokens = enc.encode_t(text, allowed_special={'<|endoftext|>'}) # (T)
 
