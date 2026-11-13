@@ -16,8 +16,6 @@ def npsoftmax(x, axis=-1):
 
 futhark = "futhark/microgpt"
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-tdtype = torch.float64
-fdtype = np.float64
 
 # -------------------------------------
 # DATA
@@ -38,7 +36,9 @@ stoi = {ch: i for i, ch in reversed(list(enumerate(vocab)))} # tokenizer
 # To play around with
 aot_compile = True # If true, torch model is compiled ahead of time
 batch_size = 50 # number of sequences per batch
-n_batch = 10000 # number of batches
+n_batch = 1000 # number of batches
+tdtype = torch.float64
+fdtype = np.float64
 
 # -------------------------------------
 # FIXED HYPERPARAMETERS
@@ -50,7 +50,8 @@ n_layer = 1     # number of layers
 vocab_size = len(uchars) + 1 # vocabulary size including the padding token
 head_dim = n_embd // n_head # derived dimension of each head
 n_seq = batch_size * n_batch # derived total number of processed sequences
-big_num = 1000000000000000000000000000000000000000000000000000000000000000 # for the attention mask
+big_num = 1e+17 # for the attention mask
+big_num = np.array(big_num, dtype=fdtype)
 # Parameters for the adam optimizer
 learning_rate = 0.01
 betas = (0.85, 0.99)
@@ -113,9 +114,9 @@ fmdic = {}
 fvdic = {}
 
 for k , dim in fdimdic.items():
-    fwdic[k] = np.zeros(dim)
-    fmdic[k] = np.zeros(dim)
-    fvdic[k] = np.zeros(dim)
+    fwdic[k] = np.zeros(dim, dtype=fdtype)
+    fmdic[k] = np.zeros(dim, dtype=fdtype)
+    fvdic[k] = np.zeros(dim, dtype=fdtype)
 
 qkv = np.reshape(twdict['blocks.0.sa_heads.qkv.weight'], (3, n_embd, n_embd))
 fwdic['wqry'][:,:] = qkv[0]
@@ -128,9 +129,8 @@ fwdic['wu'][:,:]   = twdict['blocks.0.ffwd.net.0.weight']
 fwdic['wd'][:,:]   = twdict['blocks.0.ffwd.net.2.weight']
 fwdic['wc'][:,:]   = twdict['lm_head.weight']
 
-ones = np.ones((seq_size,seq_size))
+ones = np.ones((seq_size,seq_size), dtype=fdtype)
 cau_mask = (ones - np.tril(ones))
-
 # -------------------------------------
 # TRAINING TORCH
 
