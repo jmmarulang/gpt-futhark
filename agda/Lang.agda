@@ -715,7 +715,7 @@ module Primitives where
                   ∷ ar VO --bc
                   ∷ ar (BS ⊗ (SL ⊗ ED)) --ws
                   ∷ []) (ar ((BS ⊗ SL) ⊗ VO) ) ε
-                  λ wp wqry wkey wval wo mask wu wd wc bkey bqry bval bo bu bd bc ws
+                  λ wp wqry wkey wval wo mask wu wd wc bqry bkey bval bo bu bd bc ws
                   → let θ = gptw PR wp wqry wkey wval wo bqry bkey bval bo mask wu bu wd bd wc bc in
                     bgpt-forward {sl = SL} {vo = VO} {bs = BS} SC θ ws
 
@@ -740,6 +740,6 @@ module Primitives where
                   ∷ ar (BS ⊗ (SL ⊗ ED)) --ws
                   ∷ ar ((BS ⊗ SL) ⊗ VO) --target
                   ∷ []) (ar []) ε
-                  λ wp wqry wkey wval wo mask wu wd wc bkey bqry bval bo bu bd bc ws target
+                  λ wp wqry wkey wval wo mask wu wd wc bqry bkey bval bo bu bd bc ws target
                   → let θ = gptw PR wp wqry wkey wval wo bqry bkey bval bo mask wu bu wd bd wc bc in
                     bgpt-loss {sl = SL} {vo = VO} {bs = BS} SC θ ws target

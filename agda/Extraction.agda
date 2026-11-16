@@ -244,28 +244,91 @@ module Extract where
   bgpt-forward-s : String
   bgpt-forward-s = proj₂ (runState (to-str ( multiopt bgpt-forward-e OPT)
     (from-named
-      (ε ▹ "wp" ▹ "wkey" ▹ "wqry" ▹ "wval" ▹ "wo"
-         ▹ "mask" ▹ "wu" ▹ "wd" ▹ "wc" ▹ "ws"))) 0)
+      (ε
+      ▹ "wp"
+      ▹ "wqry"
+      ▹ "wkey"
+      ▹ "wval"
+      ▹ "wo"
+      ▹ "mask"
+      ▹ "wu"
+      ▹ "wd"
+      ▹ "wc"
+      ▹ "bqry"
+      ▹ "bkey"
+      ▹ "bval"
+      ▹ "bo"
+      ▹ "bu"
+      ▹ "bd"
+      ▹ "bc"
+      ▹ "ws"
+      ))) 0)
 
   bgpt-loss-s : String
   bgpt-loss-s = proj₂ (runState (to-str ( multiopt bgpt-loss-e OPT)
     (from-named
-      (ε ▹ "wp" ▹ "wkey" ▹ "wqry" ▹ "wval" ▹ "wo"
-         ▹ "mask" ▹ "wu" ▹ "wd" ▹ "wc" ▹ "ws" ▹ "target"))) 0)
+      (ε
+      ▹ "wp"
+      ▹ "wqry"
+      ▹ "wkey"
+      ▹ "wval"
+      ▹ "wo"
+      ▹ "mask"
+      ▹ "wu"
+      ▹ "wd"
+      ▹ "wc"
+      ▹ "bqry"
+      ▹ "bkey"
+      ▹ "bval"
+      ▹ "bo"
+      ▹ "bu"
+      ▹ "bd"
+      ▹ "bc"
+      ▹ "ws"
+      ▹ "target"
+      ))) 0)
 
   grad-bgpt-loss-e = ee-OPT $ ee-dedup $ ee-OPT (grad bgpt-loss-e 𝟙 zero-ee)
 
   grad-bgpt-loss-s : String
   grad-bgpt-loss-s = pp bgpt-loss-e
-    (ε ▹ "wp" ▹ "wkey" ▹ "wqry" ▹ "wval" ▹ "wo"
-         ▹ "mask" ▹ "wu" ▹ "wd" ▹ "wc" ▹ "ws" ▹ "target")
+    (ε
+      ▹ "wp"
+      ▹ "wqry"
+      ▹ "wkey"
+      ▹ "wval"
+      ▹ "wo"
+      ▹ "mask"
+      ▹ "wu"
+      ▹ "wd"
+      ▹ "wc"
+      ▹ "bqry"
+      ▹ "bkey"
+      ▹ "bval"
+      ▹ "bo"
+      ▹ "bu"
+      ▹ "bd"
+      ▹ "bc"
+      ▹ "ws"
+      ▹ "target")
 
   grad-bgpt-loss-pp = Pretty.pretty bgpt-loss-e
-    (ε ▹ "wp" ▹ "wkey" ▹ "wqry" ▹ "wval" ▹ "wo"
-         ▹ "mask" ▹ "wu" ▹ "wd" ▹ "wc" ▹ "ws" ▹ "target")
-
-  test : E _ _
-  test = Lcon (ar ((AH ⊗ (SL ⊗ HD))) ∷ []) (ar (SL)) ε
-    λ x → Imap {SL} λ k → Sum {AH} λ i → Sum {HD} λ j → sels (sel (sel x i) k) j
-
-  grad-test-pp = Pretty.pretty test (ε ▹ "x")
+    (ε
+      ▹ "wp"
+      ▹ "wqry"
+      ▹ "wkey"
+      ▹ "wval"
+      ▹ "wo"
+      ▹ "mask"
+      ▹ "wu"
+      ▹ "wd"
+      ▹ "wc"
+      ▹ "bqry"
+      ▹ "bkey"
+      ▹ "bval"
+      ▹ "bo"
+      ▹ "bu"
+      ▹ "bd"
+      ▹ "bc"
+      ▹ "ws"
+      ▹ "target")
