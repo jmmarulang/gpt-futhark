@@ -558,82 +558,40 @@ module Primitives where
       Imap {u} λ i → Imaps {r} λ j → Sum {s} λ k →
       sels ((sel ⟨ w1 ⟩ i) ⊠ (sel ⟨ w2 ⟩ j)) k
 
-    rmsnorm : ∀ {Γ} → E Γ (ar s) → E Γ (ar s)
-    rmsnorm {s = s} x =
-      Let xx := x ⊠ x In
-      Let ms := scaledown (len s) (Sum (λ i → sels xx i)) In
-      Let scale := √ (ms ⊞ (scaledown 100000 𝟙)) In
-      Imaps λ i → (sels ⟨ x ⟩ i) // scale
+    mean : ∀ {Γ} → E Γ (ar s) → E Γ (ar [])
+    mean {s} x = scaledown (len s) (Sum λ i → sels ⟨ x ⟩ i)
 
-    m-rmsnorm : ∀ {Γ} → E Γ (ar (s ⊗ p)) → E Γ (ar (s ⊗ p))
-    m-rmsnorm {s} {p} {Γ} x = Imap {s} λ i → rmsnorm (sel ⟨ x ⟩ i)
+    -- rmsnorm : ∀ {Γ} → E Γ (ar s) → E Γ (ar s)
+    -- rmsnorm {s = s} x =
+    --   Let m := Ks (mean x) In
+    --   Let n := ⟨ x ⟩ ⊟ m In
+    --   Let nn := n ⊠ n In
+    --   Let ms := scaledown (len s) (Sum (λ i → sels nn i)) In
+    --   Let scale := √ (ms ⊞ scaledown 100000 𝟙) In
+    --   Imaps (λ i → sels n i // scale)
+
+    -- m-rmsnorm : ∀ {Γ} → E Γ (ar (s ⊗ p)) → E Γ (ar (s ⊗ p))
+    -- m-rmsnorm {s} {p} {Γ} x = Imap {s} λ i → rmsnorm (sel ⟨ x ⟩ i)
+
+    rmsnorm : ∀ {Γ} → E Γ (ar s) → E Γ (ar s) → E Γ (ar s) → E Γ (ar s)
+    rmsnorm {s = s} w b x =
+      Let m := Ks (mean x) In
+      Let n := ⟨ x ⟩ ⊟ m In
+      Let nn := n ⊠ n In
+      Let ms := scaledown (len s) (Sum (λ i → sels nn i)) In
+      Let scale := √ (ms ⊞ scaledown 100000 𝟙) In
+      ((Imaps (λ i → sels n i // scale)) ⊠ ⟨ w ⟩) ⊞ ⟨ b ⟩
+
+    m-rmsnorm : ∀ {Γ} → E Γ (ar p) → E Γ (ar p) → E Γ (ar (s ⊗ p))
+      → E Γ (ar (s ⊗ p))
+    m-rmsnorm {p} {s} {Γ} w b x = Imap {s} λ i →
+      rmsnorm ⟨ w ⟩ ⟨ b ⟩ (sel ⟨ x ⟩ i)
 
     split : s * p ≈ r → E Γ $ ar $ r → E Γ $ ar $ s ⊗ p
     split {s} eq x = Imap {s} λ i → selb eq ⟨ x ⟩ i
 
     cat : s * p ≈ r → E Γ $ ar $ s ⊗ p → E Γ $ ar $ r
     cat eq x = Imapb eq λ i → sel ⟨ x ⟩ i
-
-    -- cross-entropy : ∀ {Γ} (y probs : E Γ (ar s)) → (E Γ (ar s))
-    -- cross-entropy y probs = ⊟ (y ⊠ ln probs)
-
-    cross-entropy : ∀ {Γ} (target logits : E Γ (ar s)) → (E Γ (ar []))
-    cross-entropy {s} target probs =
-      (⊟ (Sum λ i → sels (ln ⟨ probs ⟩) i ⊠ sels ⟨ target ⟩ i))
-
-    avg : ∀ {Γ} → E Γ (ar s) → E Γ (ar [])
-    avg {s} x = scaledown (len s) (Sum λ i → sels ⟨ x ⟩ i)
-
-    record GPTW (Γ : Ctx) (sl ed ah hd fd vo : S) : Set₁ where
-      constructor gptw
-      field
-        -- the embedding dimension matches the number of heads
-        att-eq : ah * hd ≈ ed
-        -- position embedding
-        wp : E Γ $ ar $ sl ⊗ ed
-        -- weights for queries, keys, values and output projection
-        wqry wkey wval wo : E Γ $ ar $ ed ⊗ ed
-        bqry bkey bval bo : E Γ $ ar $ ed
-        -- attn and padding mask
-        mask : E Γ $ ar $ sl ⊗ sl
-        -- up projection
-        wu : E Γ $ ar $ fd ⊗ ed
-        bu : E Γ $ ar $ fd
-        -- down projection
-        wd : E Γ $ ar $ ed ⊗ fd
-        bd : E Γ $ ar $ ed
-        -- output projection into vocabulary size
-        wc : E Γ $ ar $ vo ⊗ ed
-        bc : E Γ $ ar $ vo
-    open GPTW
-
-    wk-gptp : Prefix Γ Δ → GPTW Γ sl ed ah hd fd vo → GPTW Δ sl ed ah hd fd vo
-    wk-gptp pr p = record
-      { wp = wk (fromPrefix pr) (p .wp)
-      ; att-eq = p .att-eq
-      ; wqry = wk (fromPrefix pr) (p .wqry)
-      ; wkey = wk (fromPrefix pr) (p .wkey)
-      ; wval = wk (fromPrefix pr) (p .wval)
-      ; wo = wk (fromPrefix pr) (p .wo)
-      ; mask = wk (fromPrefix pr) (p .mask)
-      ; wu = wk (fromPrefix pr) (p .wu)
-      ; wd = wk (fromPrefix pr) (p .wd)
-      ; wc = wk (fromPrefix pr) (p .wc)
-      ; bqry = wk (fromPrefix pr) (p .bqry)
-      ; bkey = wk (fromPrefix pr) (p .bkey)
-      ; bval = wk (fromPrefix pr) (p .bval)
-      ; bo = wk (fromPrefix pr) (p .bo)
-      ; bu = wk (fromPrefix pr) (p .bu)
-      ; bd = wk (fromPrefix pr) (p .bd)
-      ; bc = wk (fromPrefix pr) (p .bc)
-      }
-
-    G-GPTW : Ctx → S → S → S → S → S → S → Set₁
-    G-GPTW Γ sl ed ah hd fd vo =
-      ∀ {Δ} → ⦃ Prefix Γ Δ ⦄ → GPTW Δ sl ed ah hd fd vo
-
-    ⟨_⟩ʷ : GPTW Γ sl ed ah hd fd vo → G-GPTW Γ sl ed ah hd fd vo
-    ⟨_⟩ʷ p {Δ} ⦃ pf ⦄  = wk-gptp pf p
 
     attn : ∀ {Γ} → (sc : ℕ) →
                   (mask : E Γ (ar (sl ⊗ sl)))
@@ -643,20 +601,80 @@ module Primitives where
       Let scores := map {sl} ℙ (scaledown sc (matmult {sl} hq hk) ⊞ ⟨ mask ⟩) In
       matmul {sl} scores ⟨ hv ⟩
 
-    -- attn : ∀ {Γ} → (sc : ℕ) →
-    --               (mask : E Γ (ar (sl ⊗ sl)))
-    --               (qs ks vs : E Γ (ar (sl ⊗ hd)))
-    --             → E Γ (ar (sl ⊗ hd))
-    -- attn {sl} {hd} {Γ} sc mask hq hk hv =
-    --   matmul {sl} (map {sl} ℙ (scaledown sc (matmult {sl} hq hk) ⊞ ⟨ mask ⟩)) ⟨ hv ⟩
+    cross-entropy : ∀ {Γ} (target logits : E Γ (ar s)) → (E Γ (ar []))
+    cross-entropy {s} target probs =
+      (⊟ (Sum λ i → sels (ln ⟨ probs ⟩) i ⊠ sels ⟨ target ⟩ i))
+
+
+    record GPTW (Γ : Ctx) (sl ed ah hd fd vo : S) : Set₁ where
+      constructor gptw
+      field
+        -- the embedding dimension matches the number of heads
+        att-eq : ah * hd ≈ ed
+        -- position embedding
+        wp : E Γ $ ar $ sl ⊗ ed
+        -- attention normalization
+        wa ba : E Γ $ ar $ ed
+        -- weights for queries, keys, values and output projection
+        wqry wkey wval wo : E Γ $ ar $ ed ⊗ ed
+        bqry bkey bval bo : E Γ $ ar $ ed
+        -- attn and padding mask
+        mask : E Γ $ ar $ sl ⊗ sl
+        -- mlp normalization
+        wm bm : E Γ $ ar $ ed
+        -- up projection
+        wu : E Γ $ ar $ fd ⊗ ed
+        bu : E Γ $ ar $ fd
+        -- down projection
+        wd : E Γ $ ar $ ed ⊗ fd
+        bd : E Γ $ ar $ ed
+        -- final normalization
+        wf bf : E Γ $ ar $ ed
+        -- output projection into vocabulary size
+        wc : E Γ $ ar $ vo ⊗ ed
+        bc : E Γ $ ar $ vo
+    open GPTW
+
+    wk-gptp : Prefix Γ Δ → GPTW Γ sl ed ah hd fd vo → GPTW Δ sl ed ah hd fd vo
+    wk-gptp pr p = gptw
+      (p .att-eq)
+      (wk (fromPrefix pr) (p .wp))
+      (wk (fromPrefix pr) (p .wa))
+      (wk (fromPrefix pr) (p .ba))
+      (wk (fromPrefix pr) (p .wqry))
+      (wk (fromPrefix pr) (p .wkey))
+      (wk (fromPrefix pr) (p .wval))
+      (wk (fromPrefix pr) (p .wo))
+      (wk (fromPrefix pr) (p .bqry))
+      (wk (fromPrefix pr) (p .bkey))
+      (wk (fromPrefix pr) (p .bval))
+      (wk (fromPrefix pr) (p .bo))
+      (wk (fromPrefix pr) (p .mask))
+      (wk (fromPrefix pr) (p .wm))
+      (wk (fromPrefix pr) (p .bm))
+      (wk (fromPrefix pr) (p .wu))
+      (wk (fromPrefix pr) (p .bu))
+      (wk (fromPrefix pr) (p .wd))
+      (wk (fromPrefix pr) (p .bd))
+      (wk (fromPrefix pr) (p .wf))
+      (wk (fromPrefix pr) (p .bf))
+      (wk (fromPrefix pr) (p .wc))
+      (wk (fromPrefix pr) (p .bc))
+
+    G-GPTW : Ctx → S → S → S → S → S → S → Set₁
+    G-GPTW Γ sl ed ah hd fd vo =
+      ∀ {Δ} → ⦃ Prefix Γ Δ ⦄ → GPTW Δ sl ed ah hd fd vo
+
+    ⟨_⟩ʷ : GPTW Γ sl ed ah hd fd vo → G-GPTW Γ sl ed ah hd fd vo
+    ⟨_⟩ʷ p {Δ} ⦃ pf ⦄  = wk-gptp pf p
 
     gpt-forward : ∀ {Γ} (sc : ℕ)
                 → GPTW Γ sl ed ah hd fd vo
                 → E Γ $ ar $ (sl ⊗ ed)
                 → E Γ $ ar $ (sl ⊗ vo)
     gpt-forward {sl} {ed} {ah} {hd} {fd} {vo} sc θ ws =
-      Let x₀ := (m-rmsnorm {sl}) ((⟨ θ .wp ⟩ ⊞_) ws) In
-      Let x₁ := (m-rmsnorm {sl}) x₀ In
+      Let x₀ := ((⟨ θ .wp ⟩ ⊞_) ws) In
+      Let x₁ := (m-rmsnorm ⟨ θ .wa ⟩ ⟨ θ .ba ⟩) x₀ In
       Let q  := (map {sl} (linear ⟨ θ .wqry ⟩ ⟨ θ .bqry ⟩)) x₁ In
       Let k  := (map {sl} (linear ⟨ θ .wkey ⟩ ⟨ θ .bkey ⟩)) x₁ In
       Let v  := (map {sl} (linear ⟨ θ .wval ⟩ ⟨ θ .bval ⟩)) x₁ In
@@ -666,10 +684,11 @@ module Primitives where
         ((trₗ {sl} {ah}) ((map {sl} (split (θ .att-eq))) v)) In
       Let attn := (map {sl} $ cat (θ .att-eq)) ((trₗ {ah} {sl}) sattn) In
       Let x₂ := x₀ ⊞ ((map {sl} (linear ⟨ θ .wo ⟩ ⟨ θ .bo ⟩)) attn) In
-      Let x₃ := (m-rmsnorm {sl}) x₂ In
+      Let x₃ := (m-rmsnorm ⟨ θ .wm ⟩ ⟨ θ .bm ⟩) x₂ In
       Let rl := relu ((map {sl} (linear ⟨ θ .wu ⟩ ⟨ θ .bu ⟩)) x₃) In
       Let x₄ := x₂ ⊞ ((map {sl} (linear ⟨ θ .wd ⟩ ⟨ θ .bd ⟩)) rl) In
-      (map {sl} (linear ⟨ θ .wc ⟩ ⟨ θ .bc ⟩)) x₄
+      Let x₅ := (m-rmsnorm ⟨ θ .wf ⟩ ⟨ θ .bf ⟩) x₄ In
+      (map {sl} (linear ⟨ θ .wc ⟩ ⟨ θ .bc ⟩)) x₅
 
     bgpt-forward : ∀ {Γ} (sc : ℕ)
                 → GPTW Γ sl ed ah hd fd vo
@@ -677,7 +696,6 @@ module Primitives where
                 → E Γ $ ar $ bs ⊗ (sl ⊗ vo)
     bgpt-forward {sl} {ed} {ah} {hd} {fd} {vo} {bs} sc θ ws =
       Imap {bs} λ i → gpt-forward sc ⟨ θ ⟩ʷ (sel ⟨ ws ⟩ i)
-
 
     bgpt-loss : ∀ {Γ} (sc : ℕ)
                 → GPTW Γ sl ed ah hd fd vo
@@ -698,48 +716,60 @@ module Primitives where
     bgpt-forward-e : E _ _
     bgpt-forward-e = Lcon (
                     ar (SL ⊗ ED) --wp
+                  ∷ ar ED --wa
+                  ∷ ar ED --ba
                   ∷ ar (ED ⊗ ED) --wqry
                   ∷ ar (ED ⊗ ED) --wkey
                   ∷ ar (ED ⊗ ED) --wval
                   ∷ ar (ED ⊗ ED) --wo
-                  ∷ ar (SL ⊗ SL) --mask
-                  ∷ ar (FD ⊗ ED) --wu
-                  ∷ ar (ED ⊗ FD) --wd
-                  ∷ ar (VO ⊗ ED) --wc
                   ∷ ar ED --bqry
                   ∷ ar ED --bkey
                   ∷ ar ED --bval
                   ∷ ar ED --bo
+                  ∷ ar (SL ⊗ SL) --mask
+                  ∷ ar ED --wm
+                  ∷ ar ED --bm
+                  ∷ ar (FD ⊗ ED) --wu
                   ∷ ar FD --bu
+                  ∷ ar (ED ⊗ FD) --wd
                   ∷ ar ED --bd
+                  ∷ ar ED --wm
+                  ∷ ar ED --bm
+                  ∷ ar (VO ⊗ ED) --wc
                   ∷ ar VO --bc
                   ∷ ar (BS ⊗ (SL ⊗ ED)) --ws
                   ∷ []) (ar ((BS ⊗ SL) ⊗ VO) ) ε
-                  λ wp wqry wkey wval wo mask wu wd wc bqry bkey bval bo bu bd bc ws
-                  → let θ = gptw PR wp wqry wkey wval wo bqry bkey bval bo mask wu bu wd bd wc bc in
+                  λ wp wa ba wqry wkey wval wo bqry bkey bval bo mask wm bm wu bu wd bd wf bf wc bc ws
+                  → let θ = gptw PR wp wa ba wqry wkey wval wo bqry bkey bval bo mask wm bm wu bu wd bd wf bf wc bc in
                     bgpt-forward {sl = SL} {vo = VO} {bs = BS} SC θ ws
 
     bgpt-loss-e : E _ _
     bgpt-loss-e = Lcon (
                     ar (SL ⊗ ED) --wp
+                  ∷ ar ED --wa
+                  ∷ ar ED --ba
                   ∷ ar (ED ⊗ ED) --wqry
                   ∷ ar (ED ⊗ ED) --wkey
                   ∷ ar (ED ⊗ ED) --wval
                   ∷ ar (ED ⊗ ED) --wo
-                  ∷ ar (SL ⊗ SL) --mask
-                  ∷ ar (FD ⊗ ED) --wu
-                  ∷ ar (ED ⊗ FD) --wd
-                  ∷ ar (VO ⊗ ED) --wc
                   ∷ ar ED --bqry
                   ∷ ar ED --bkey
                   ∷ ar ED --bval
                   ∷ ar ED --bo
+                  ∷ ar (SL ⊗ SL) --mask
+                  ∷ ar ED --wm
+                  ∷ ar ED --bm
+                  ∷ ar (FD ⊗ ED) --wu
                   ∷ ar FD --bu
+                  ∷ ar (ED ⊗ FD) --wd
                   ∷ ar ED --bd
+                  ∷ ar ED --wm
+                  ∷ ar ED --bm
+                  ∷ ar (VO ⊗ ED) --wc
                   ∷ ar VO --bc
                   ∷ ar (BS ⊗ (SL ⊗ ED)) --ws
                   ∷ ar ((BS ⊗ SL) ⊗ VO) --target
                   ∷ []) (ar []) ε
-                  λ wp wqry wkey wval wo mask wu wd wc bqry bkey bval bo bu bd bc ws target
-                  → let θ = gptw PR wp wqry wkey wval wo bqry bkey bval bo mask wu bu wd bd wc bc in
+                  λ wp wa ba wqry wkey wval wo bqry bkey bval bo mask wm bm wu bu wd bd wf bf wc bc ws target
+                  → let θ = gptw PR wp wa ba wqry wkey wval wo bqry bkey bval bo mask wm bm wu bu wd bd wf bf wc bc in
                     bgpt-loss {sl = SL} {vo = VO} {bs = BS} SC θ ws target
