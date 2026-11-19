@@ -655,7 +655,8 @@ module Primitives where
                 → E Γ $ ar $ (sl ⊗ ed)
                 → E Γ $ ar $ (sl ⊗ vo)
     gpt-forward {sl} {ed} {ah} {hd} {fd} {vo} sc θ ws =
-      Let x₀ := (m-rmsnorm {sl}) ((⟨ θ .wp ⟩ ⊞_) ws) In
+      -- Let x₀ := (m-rmsnorm {sl}) ((⟨ θ .wp ⟩ ⊞_) ws) In
+      Let x₀ := ((⟨ θ .wp ⟩ ⊞_) ws) In
       Let x₁ := (m-rmsnorm {sl}) x₀ In
       Let q  := (map {sl} (linear ⟨ θ .wqry ⟩ ⟨ θ .bqry ⟩)) x₁ In
       Let k  := (map {sl} (linear ⟨ θ .wkey ⟩ ⟨ θ .bkey ⟩)) x₁ In
@@ -669,7 +670,8 @@ module Primitives where
       Let x₃ := (m-rmsnorm {sl}) x₂ In
       Let rl := relu ((map {sl} (linear ⟨ θ .wu ⟩ ⟨ θ .bu ⟩)) x₃) In
       Let x₄ := x₂ ⊞ ((map {sl} (linear ⟨ θ .wd ⟩ ⟨ θ .bd ⟩)) rl) In
-      (map {sl} (linear ⟨ θ .wc ⟩ ⟨ θ .bc ⟩)) x₄
+      Let x₅ := (m-rmsnorm {sl}) x₄ In
+      (map {sl} (linear ⟨ θ .wc ⟩ ⟨ θ .bc ⟩)) x₅
 
     bgpt-forward : ∀ {Γ} (sc : ℕ)
                 → GPTW Γ sl ed ah hd fd vo

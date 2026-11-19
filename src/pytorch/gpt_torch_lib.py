@@ -85,8 +85,8 @@ class GPT(nn.Module):
         tok_emb = self.token_embedding_table(idx) # (B, T, n_embd)
         pos_emb = self.position_embedding_table(torch.arange(T, device=idx.device)) # (T, n_embd)
         x = tok_emb + pos_emb # (B, T, n_embd)
-        x = F.rms_norm(x, (self.n_embd,), eps=1e-5)
         x = self.blocks(x) # (B, T, n_embd)
+        x = F.rms_norm(x, (self.n_embd,), eps=1e-5)
         logits = self.lm_head(x) # (B, T, vocab_size)
 
         B, T, C = logits.shape
