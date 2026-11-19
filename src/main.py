@@ -53,7 +53,6 @@ head_dim = n_embd // n_head # derived dimension of each head
 n_seq = batch_size * n_batch # derived total number of processed sequences
 big_num = 1e+17 # for the attention mask
 big_num = np.array(big_num, dtype=fdtype)
-with_norm_weights = True #add weights and bias to layer_norm
 # Parameters for the adam optimizer
 learning_rate = 0.01
 betas = (0.85, 0.99)
@@ -85,9 +84,7 @@ futhark_data = np.array(data)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # Define the model
-config = mt.GPTConfig(n_embd, seq_size, forward_dim, n_head, n_layer, vocab_size, head_dim, with_norm_weights)
-
-torch_model = mt.GPT(config)\
+torch_model = mt.GPT(n_head, head_dim, seq_size, vocab_size, n_embd, n_layer)\
     .to(device=device, dtype=tdtype)
 
 # Define optimizer and scheduler
@@ -107,23 +104,19 @@ train_model = torch.compile(torch_model,mode='reduce-overhead', fullgraph=True)
 
 twdict = torch_model.state_dict().copy()
 for k , t in twdict.items():
-    # print(k, t.shape)
     twdict[k] = t.cpu().numpy().astype(fdtype)
 
 # Weight dimensions
 fdimdic = {
-          'wt'   : (vocab_size, n_embd)  ,                         # token embedding table
-          'wp'   : (seq_size, n_embd)    ,                         # position embedding table
-          'wa'   : (n_embd)              , 'ba'   : (n_embd),      # attention normalization weights
-          'wqry' : (n_embd, n_embd)      , 'bqry' : (n_embd),      # query weights
-          'wkey' : (n_embd, n_embd)      , 'bkey' : (n_embd),      # key weights
-          'wval' : (n_embd, n_embd)      , 'bval' : (n_embd),      # value weights
-          'wo'   : (n_embd, n_embd)      , 'bo'   : (n_embd),      # attention projection weights
-          'wm'   : (n_embd)              , 'bm'   : (n_embd),      # mlp normalization weights
+          'wt'   : (vocab_size, n_embd) ,                        # token embedding table
+          'wp'   : (seq_size, n_embd)   ,                        # position embedding table
+          'wqry' : (n_embd, n_embd)     , 'bqry' : (n_embd),     # query weights
+          'wkey' : (n_embd, n_embd)     , 'bkey' : (n_embd),     # key weights
+          'wval' : (n_embd, n_embd)     , 'bval' : (n_embd),     # value weights
+          'wo'   : (n_embd, n_embd)     , 'bo'   : (n_embd),     # attention projection weights
           'wu'   : (forward_dim, n_embd) , 'bu'   : (forward_dim), # mlp up weights
-          'wd'   : (n_embd, forward_dim) , 'bd'   : (n_embd),      # mlp down weights
-          'wf'   : (n_embd)              , 'bf'   : (n_embd),      # final normalization weights
-          'wc'   : (vocab_size, n_embd)  , 'bc'   : (vocab_size)   # vocabulary projection weights
+          'wd'   : (n_embd, forward_dim) , 'bd'   : (n_embd),     # mlp down weights
+          'wc'   : (vocab_size, n_embd) , 'bc'   : (vocab_size)  # vocabulary projection weights
           }
 
 fwdic = {}
@@ -140,23 +133,13 @@ bqkv = np.reshape(twdict['blocks.0.sa_heads.qkv.bias'], (3, n_embd))
 
 fwdic['wt'][:,:] = twdict['token_embedding_table.weight']
 fwdic['wp'][:,:] = twdict['position_embedding_table.weight']
-fwdic['wa'][:] = twdict['blocks.0.ln_1.layer_norm.weight'];\
-    fwdic['ba'][:] = twdict['blocks.0.ln_1.layer_norm.bias']
 fwdic['wqry'][:,:] = wqkv[0]; fwdic['bqry'][:] = bqkv[0]
 fwdic['wkey'][:,:] = wqkv[1]; fwdic['bkey'][:] = bqkv[1]
 fwdic['wval'][:,:] = wqkv[2]; fwdic['bval'][:] = bqkv[2]
-fwdic['wo'][:,:]   = twdict['blocks.0.sa_heads.proj.weight'];\
-    fwdic['bo'][:] = twdict['blocks.0.sa_heads.proj.bias']
-fwdic['wm'][:] = twdict['blocks.0.ln_2.layer_norm.weight'];\
-    fwdic['bm'][:] = twdict['blocks.0.ln_2.layer_norm.bias']
-fwdic['wu'][:,:] = twdict['blocks.0.ffwd.net.0.weight'];\
-    fwdic['bu'][:] = twdict['blocks.0.ffwd.net.0.bias']
-fwdic['wd'][:,:] = twdict['blocks.0.ffwd.net.2.weight'];\
-    fwdic['bd'][:] = twdict['blocks.0.ffwd.net.2.bias']
-fwdic['wf'][:] = twdict['ln_f.layer_norm.weight'];\
-    fwdic['bf'][:] = twdict['ln_f.layer_norm.bias']
-fwdic['wc'][:,:] = twdict['lm_head.weight'];\
-    fwdic['bc'][:] = twdict['lm_head.bias']
+fwdic['wo'][:,:] = twdict['blocks.0.sa_heads.proj.weight']; fwdic['bo'][:] = twdict['blocks.0.sa_heads.proj.bias']
+fwdic['wu'][:,:] = twdict['blocks.0.ffwd.net.0.weight']; fwdic['bu'][:] = twdict['blocks.0.ffwd.net.0.bias']
+fwdic['wd'][:,:] = twdict['blocks.0.ffwd.net.2.weight']; fwdic['bd'][:] = twdict['blocks.0.ffwd.net.2.bias']
+fwdic['wc'][:,:] = twdict['lm_head.weight']; fwdic['bc'][:] = twdict['lm_head.bias']
 
 ones = np.ones((seq_size,seq_size), dtype=fdtype)
 cau_mask = (ones - np.tril(ones))
@@ -260,7 +243,7 @@ for i , k in enumerate(fdimdic.keys()):
     fmdic[k] = p_mp_vp[i + 9]
     fmdic[k] = p_mp_vp[i + 18]
 
-#-------------------------------------
+# #-------------------------------------
 # PROBS
 # Do a forward pass to check the results match
 
@@ -295,12 +278,12 @@ with futhark_server.Server(futhark) as server:
     for k , data in fwdic.items():
         server.put_value(k, data)
     server.cmd_call('to_params', 'fparams', *fwdic.keys())
-    # server.cmd_call('forward', 'flogits', 'fparams', 'tokens', 'mask')
+    server.cmd_call('forward', 'flogits', 'fparams', 'tokens', 'mask')
     server.cmd_call('loss', 'floss', 'fparams', 'tokens', 'mask')
-    # futhark_logits = server.get_value('flogits')
+    futhark_logits = server.get_value('flogits')
     futhark_loss = server.get_value('floss')
-# futhark_logits = futhark_logits[:,:-1]
-# futhark_probatch_size =npsoftmax(futhark_logits, 1)
+futhark_logits = futhark_logits[:,:-1]
+futhark_probatch_size =npsoftmax(futhark_logits, 1)
 
 #### Torch
 n = seq_size - 1
@@ -318,34 +301,3 @@ torch_probatch_size =npsoftmax(torch_logits, 1)
 
 print("futhark loss", futhark_loss)
 print("torch   loss", torch_loss)
-
-# input =  [[1,2,3],[4,5,6]]
-# weight = [1,2,3]
-# bias =   [4,5,6]
-# tinput = torch.tensor(input, dtype= tdtype)
-# tweight = torch.tensor(weight, dtype=tdtype)
-# tbias = torch.tensor(bias, dtype=tdtype)
-
-# ninput = np.array(input)
-# nweight = np.array(weight)
-# nbias = np.array(bias)
-
-# tout = nn.functional.layer_norm(tinput, (3,), weight=tweight, bias=tbias).cpu().numpy()
-# print(tout)
-
-# def _my_layer_norm(x, weight=1, bias=0, epsilon=1e-05,):
-#     m = np.mean(x)
-#     n = x - m
-#     nn = n * n
-#     ms = (np.sum(nn)/len(x))
-#     scale = np.sqrt(ms + epsilon)
-#     return (n/scale)*weight + bias
-
-# def my_layer_norm(x, weight=1, bias=0, epsilon=1e-05,):
-#     r = np.zeros(x.shape)
-#     for i in range(x.shape[0]):
-#         r[i] = _my_layer_norm(x[i], weight= weight, bias=bias, epsilon=epsilon)
-#     return r
-
-# nout = my_layer_norm(ninput, weight=nweight, bias=nbias)
-# print(nout)
