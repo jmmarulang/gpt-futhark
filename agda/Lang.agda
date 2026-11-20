@@ -561,17 +561,17 @@ module Primitives where
     mean : ∀ {Γ} → E Γ (ar s) → E Γ (ar [])
     mean {s} x = scaledown (len s) (Sum λ i → sels ⟨ x ⟩ i)
 
-    rmsnorm : ∀ {Γ} → E Γ (ar s) → E Γ (ar s)
-    rmsnorm {s = s} x =
+    rmsnorm : ∀ {Γ} → E Γ (ar s) → E Γ (ar s) → E Γ (ar s) → E Γ (ar s)
+    rmsnorm {s = s} w b x =
       Let m := Ks (mean x) In
       Let n := ⟨ x ⟩ ⊟ m In
       Let nn := n ⊠ n In
       Let ms := scaledown (len s) (Sum (λ i → sels nn i)) In
       Let scale := √ (ms ⊞ (scaledown 100000 𝟙)) In
-      Imaps λ i → (sels n i) // scale
+      ((Imaps λ i → (sels n i) // scale) ⊠ ⟨ w ⟩) ⊞ ⟨ b ⟩
 
-    m-rmsnorm : ∀ {Γ} → E Γ (ar (s ⊗ p)) → E Γ (ar (s ⊗ p))
-    m-rmsnorm {s} {p} {Γ} x = Imap {s} λ i → rmsnorm (sel ⟨ x ⟩ i)
+    m-rmsnorm : ∀ {Γ} → E Γ (ar p) → E Γ (ar p) → E Γ (ar (s ⊗ p)) → E Γ (ar (s ⊗ p))
+    m-rmsnorm {p} {s} {Γ} w b x = Imap {s} λ i → rmsnorm ⟨ w ⟩ ⟨ b ⟩ (sel ⟨ x ⟩ i)
 
     split : s * p ≈ r → E Γ $ ar $ r → E Γ $ ar $ s ⊗ p
     split {s} eq x = Imap {s} λ i → selb eq ⟨ x ⟩ i
@@ -659,7 +659,7 @@ module Primitives where
     gpt-forward {sl} {ed} {ah} {hd} {fd} {vo} sc θ ws =
       -- Let x₀ := (m-rmsnorm {sl}) ((⟨ θ .wp ⟩ ⊞_) ws) In
       Let x₀ := ((⟨ θ .wp ⟩ ⊞_) ws) In
-      Let x₁ := (m-rmsnorm {sl}) x₀ In
+      Let x₁ := (m-rmsnorm {s = sl} 𝟙 𝟘) x₀ In
       Let q  := (map {sl} (linear ⟨ θ .wqry ⟩ ⟨ θ .bqry ⟩)) x₁ In
       Let k  := (map {sl} (linear ⟨ θ .wkey ⟩ ⟨ θ .bkey ⟩)) x₁ In
       Let v  := (map {sl} (linear ⟨ θ .wval ⟩ ⟨ θ .bval ⟩)) x₁ In
@@ -669,10 +669,10 @@ module Primitives where
         ((trₗ {sl} {ah}) ((map {sl} (split (θ .att-eq))) v)) In
       Let attn := (map {sl} $ cat (θ .att-eq)) ((trₗ {ah} {sl}) sattn) In
       Let x₂ := x₀ ⊞ ((map {sl} (linear ⟨ θ .wo ⟩ ⟨ θ .bo ⟩)) attn) In
-      Let x₃ := (m-rmsnorm {sl}) x₂ In
+      Let x₃ := (m-rmsnorm {s = sl} 𝟙 𝟘) x₂ In
       Let rl := relu ((map {sl} (linear ⟨ θ .wu ⟩ ⟨ θ .bu ⟩)) x₃) In
       Let x₄ := x₂ ⊞ ((map {sl} (linear ⟨ θ .wd ⟩ ⟨ θ .bd ⟩)) rl) In
-      Let x₅ := (m-rmsnorm {sl}) x₄ In
+      Let x₅ := (m-rmsnorm {s = sl} 𝟙 𝟘) x₄ In
       (map {sl} (linear ⟨ θ .wc ⟩ ⟨ θ .bc ⟩)) x₅
 
     bgpt-forward : ∀ {Γ} (sc : ℕ)

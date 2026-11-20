@@ -55,24 +55,23 @@ class FeedForward(nn.Module):
     def forward(self, x):
         return self.net(x)
 
-class Norm(nn.Module):
-    def __init__(self, config):
-        super().__init__()
-        self.n_embd = config.n_embd
-        # self.norm = nn.RMSNorm(config.n_embd, eps=1e-5, elementwise_affine= config.elementwise_affine)
-        # self.norm = nn.LayerNorm(config.n_embd, eps=1e-5, elementwise_affine= config.elementwise_affine)
-    def forward(self, x):
-            # return self.norm(x)
-            return F.layer_norm(x, (self.n_embd, ), weight=None, bias=None, eps=1e-5)
+# class Norm(nn.Module):
+#     def __init__(self, config):
+#         super().__init__()
+#         self.n_embd = config.n_embd
+#         self.norm = nn.LayerNorm(config.n_embd, eps=1e-5, elementwise_affine= config.elementwise_affine)
+#     def forward(self, x):
+#             return self.norm(x)
+
 class Block(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.n_head = config.n_head
         self.head_dim = config.head_dim
         self.n_embd = config.n_embd
-        self.sa_norm = Norm(config)
+        self.sa_norm = nn.LayerNorm(config.n_embd, eps=1e-5, elementwise_affine= config.elementwise_affine)
         self.sa_heads = MultiHeadAttention(config)
-        self.ffwd_norm = Norm(config)
+        self.ffwd_norm = nn.LayerNorm(config.n_embd, eps=1e-5, elementwise_affine= config.elementwise_affine)
         self.ffwd = FeedForward(config)
 
     def forward(self, x):
@@ -92,7 +91,7 @@ class GPT(nn.Module):
         self.token_embedding_table = nn.Embedding(config.vocab_size, config.n_embd)
         self.position_embedding_table = nn.Embedding(config.seq_size, config.n_embd)
         self.blocks = nn.Sequential(*[Block(config) for _ in range(config.n_layer)])
-        self.lm_norm = Norm(config)
+        self.lm_norm = nn.LayerNorm(config.n_embd, eps=1e-5, elementwise_affine= config.elementwise_affine)
         self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=True)
 
         # Better init

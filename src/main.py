@@ -51,6 +51,7 @@ n_layer = 1     # number of layers
 vocab_size = len(uchars) + 1 # vocabulary size including the padding token
 head_dim = n_embd // n_head # derived dimension of each head
 n_seq = batch_size * n_batch # derived total number of processed sequences
+elementwise_affine = False
 big_num = 1e+17 # for the attention mask
 big_num = np.array(big_num, dtype=fdtype)
 # Parameters for the adam optimizer
@@ -86,7 +87,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 # Define the model
 # torch_model = mt.GPT(n_head, head_dim, seq_size, vocab_size, n_embd, n_layer)\
 #     .to(device=device, dtype=tdtype)
-config = mt.GPTConfig(n_embd, seq_size, forward_dim, n_head, n_layer, vocab_size, head_dim, False)
+config = mt.GPTConfig(n_embd, seq_size, forward_dim, n_head, n_layer, vocab_size, head_dim, elementwise_affine)
 
 torch_model = mt.GPT(config)\
     .to(device=device, dtype=tdtype)
@@ -108,19 +109,23 @@ train_model = torch.compile(torch_model,mode='reduce-overhead', fullgraph=True)
 
 twdict = torch_model.state_dict().copy()
 for k , t in twdict.items():
+    # print(k)
     twdict[k] = t.cpu().numpy().astype(fdtype)
 
 # Weight dimensions
 fdimdic = {
-          'wt'   : (vocab_size, n_embd) ,                        # token embedding table
-          'wp'   : (seq_size, n_embd)   ,                        # position embedding table
-          'wqry' : (n_embd, n_embd)     , 'bqry' : (n_embd),     # query weights
-          'wkey' : (n_embd, n_embd)     , 'bkey' : (n_embd),     # key weights
-          'wval' : (n_embd, n_embd)     , 'bval' : (n_embd),     # value weights
-          'wo'   : (n_embd, n_embd)     , 'bo'   : (n_embd),     # attention projection weights
+          'wt'   : (vocab_size, n_embd)  ,                         # token embedding table
+          'wp'   : (seq_size, n_embd)    ,                         # position embedding table
+        #   'wa' : (n_embd)                , 'ba'   : (n_embd),      # attention normalization
+          'wqry' : (n_embd, n_embd)      , 'bqry' : (n_embd),      # query weights
+          'wkey' : (n_embd, n_embd)      , 'bkey' : (n_embd),      # key weights
+          'wval' : (n_embd, n_embd)      , 'bval' : (n_embd),      # value weights
+          'wo'   : (n_embd, n_embd)      , 'bo'   : (n_embd),      # attention projection weights
+        #   'wm'   : (n_embd)              , 'bm'   : (n_embd),      # mlp normalization
           'wu'   : (forward_dim, n_embd) , 'bu'   : (forward_dim), # mlp up weights
-          'wd'   : (n_embd, forward_dim) , 'bd'   : (n_embd),     # mlp down weights
-          'wc'   : (vocab_size, n_embd) , 'bc'   : (vocab_size)  # vocabulary projection weights
+          'wd'   : (n_embd, forward_dim) , 'bd'   : (n_embd),      # mlp down weights
+        #   'wf' : (n_embd)                , 'bf'   : (n_embd),      # final normalization
+          'wc'   : (vocab_size, n_embd)  , 'bc'   : (vocab_size)   # vocabulary projection weights
           }
 
 fwdic = {}
@@ -137,12 +142,18 @@ bqkv = np.reshape(twdict['blocks.0.sa_heads.qkv.bias'], (3, n_embd))
 
 fwdic['wt'][:,:] = twdict['token_embedding_table.weight']
 fwdic['wp'][:,:] = twdict['position_embedding_table.weight']
+# fwdic['wa'][:] = twdict['blocks.0.sa_norm.weight']
+# fwdic['ba'][:] = twdict['blocks.0.sa_norm.bias']
 fwdic['wqry'][:,:] = wqkv[0]; fwdic['bqry'][:] = bqkv[0]
 fwdic['wkey'][:,:] = wqkv[1]; fwdic['bkey'][:] = bqkv[1]
 fwdic['wval'][:,:] = wqkv[2]; fwdic['bval'][:] = bqkv[2]
 fwdic['wo'][:,:] = twdict['blocks.0.sa_heads.proj.weight']; fwdic['bo'][:] = twdict['blocks.0.sa_heads.proj.bias']
+# fwdic['wm'][:] = twdict['blocks.0.ffwd_norm.weight']
+# fwdic['bm'][:] = twdict['blocks.0.ffwd_norm.bias']
 fwdic['wu'][:,:] = twdict['blocks.0.ffwd.net.0.weight']; fwdic['bu'][:] = twdict['blocks.0.ffwd.net.0.bias']
 fwdic['wd'][:,:] = twdict['blocks.0.ffwd.net.2.weight']; fwdic['bd'][:] = twdict['blocks.0.ffwd.net.2.bias']
+# fwdic['wf'][:] = twdict['lm_norm.weight']
+# fwdic['bf'][:] = twdict['lm_norm.bias']
 fwdic['wc'][:,:] = twdict['lm_head.weight']; fwdic['bc'][:] = twdict['lm_head.bias']
 
 ones = np.ones((seq_size,seq_size), dtype=fdtype)
