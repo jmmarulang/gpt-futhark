@@ -36,7 +36,7 @@ stoi = {ch: i for i, ch in reversed(list(enumerate(vocab)))} # tokenizer
 # To play around with
 aot_compile = True # If true, torch model is compiled ahead of time
 batch_size = 50 # number of sequences per batch
-n_batch = 1000 # number of batches
+n_batch = 10000 # number of batches
 tdtype = torch.float64
 fdtype = np.float64
 
@@ -51,7 +51,7 @@ n_layer = 1     # number of layers
 vocab_size = len(uchars) + 1 # vocabulary size including the padding token
 head_dim = n_embd // n_head # derived dimension of each head
 n_seq = batch_size * n_batch # derived total number of processed sequences
-elementwise_affine = True
+elementwise_affine = True # learn the normalization weights and biases?
 big_num = 1e+17 # for the attention mask
 big_num = np.array(big_num, dtype=fdtype)
 # Parameters for the adam optimizer
@@ -159,104 +159,104 @@ fwdic['wc'][:,:] = twdict['lm_head.weight']; fwdic['bc'][:] = twdict['lm_head.bi
 ones = np.ones((seq_size,seq_size), dtype=fdtype)
 cau_mask = (ones - np.tril(ones))
 
+# -------------------------------------
+# TRAINING TORCH
+
+# We use batch_offsets to avoid adding an extra loop that extracts the batches
+batch_offsets = torch.arange(batch_size, device=device)
+
+# Compile ahead of time?
+if aot_compile:
+    print("Compiling Torch")
+    start = time.time()
+    # Torch asks for example inputs to compile ahead of time
+    example_batch = torch.randint(
+        0, vocab_size, (batch_size, seq_size -1), dtype=torch.long, device=device
+    )
+    example_target = torch.randint(
+        0, vocab_size, (batch_size, seq_size -1), dtype=torch.long, device=device
+    )
+    # Compiled forward pass
+    compiled_fn = train_model.forward.aot_compile(
+        ((example_batch, example_target), {})
+    )
+    end = time.time()
+    print("torch compiling time", end - start)
+
+print("Training Torch")
+
+torch_model.train()
+# Start timer
+start = time.time()
+# Each sequence is of length seq_size - 1.
+# This is so the target does not go out of index bounds
+n = seq_size - 1
+# For each batch...
+for step in range(n_batch):
+    # Get a batch and a target
+    seqs = torch_data[(batch_offsets + step * batch_size) % len(docs)]
+    batch = seqs[:, :n].contiguous()
+    target = seqs[:, 1:n+1].contiguous()
+
+    # Forward pass
+    torch.compiler.cudagraph_mark_step_begin()
+    if aot_compile:
+        _, loss = compiled_fn(torch_model, batch, target)
+    else:
+        _, loss = train_model(batch, target)
+
+    # Backpropagation
+    optimizer.zero_grad(set_to_none=True)
+    loss.backward()
+    # Optimization
+    optimizer.step()
+    scheduler.step()
+
+if device.type == 'cuda':
+    torch.cuda.synchronize()
+# End timer
+end = time.time()
+print("torch training time", end - start)
+
 # # -------------------------------------
-# # TRAINING TORCH
+# # TRAINING FUT
+print("Training Futhark")
 
-# # We use batch_offsets to avoid adding an extra loop that extracts the batches
-# batch_offsets = torch.arange(batch_size, device=device)
+#Preprocessing
+# All batches
+batches = np.zeros((n_batch, batch_size, seq_size)).astype(np.int64, copy=False)
+# Attention mask
+mask = -1*big_num*cau_mask
 
-# # Compile ahead of time?
-# if aot_compile:
-#     print("Compiling Torch")
-#     start = time.time()
-#     # Torch asks for example inputs to compile ahead of time
-#     example_batch = torch.randint(
-#         0, vocab_size, (batch_size, seq_size -1), dtype=torch.long, device=device
-#     )
-#     example_target = torch.randint(
-#         0, vocab_size, (batch_size, seq_size -1), dtype=torch.long, device=device
-#     )
-#     # Compiled forward pass
-#     compiled_fn = train_model.forward.aot_compile(
-#         ((example_batch, example_target), {})
-#     )
-#     end = time.time()
-#     print("torch compiling time", end - start)
+# We use batch_offsets to avoid adding an extra loop that extracts the batches
+batch_offsets = np.arange(batch_size)
 
-# print("Training Torch")
+# Call server and put values
+with futhark_server.Server(futhark) as server:
+    for k , data in fwdic.items():
+        server.put_value(k, data)
+    server.cmd_call('to_params', 'p', *fwdic.keys())
+    server.cmd_call('zero_params', 'mp')
+    server.cmd_call('zero_params', 'vp')
+    server.put_value('mask', mask)
 
-# torch_model.train()
-# # Start timer
-# start = time.time()
-# # Each sequence is of length seq_size - 1.
-# # This is so the target does not go out of index bounds
-# n = seq_size - 1
-# # For each batch...
-# for step in range(n_batch):
-#     # Get a batch and a target
-#     seqs = torch_data[(batch_offsets + step * batch_size) % len(docs)]
-#     batch = seqs[:, :n].contiguous()
-#     target = seqs[:, 1:n+1].contiguous()
+    for step in range(n_batch):
+        batches[step] = futhark_data[(batch_offsets + step * batch_size) % len(docs)]
 
-#     # Forward pass
-#     torch.compiler.cudagraph_mark_step_begin()
-#     if aot_compile:
-#         _, loss = compiled_fn(torch_model, batch, target)
-#     else:
-#         _, loss = train_model(batch, target)
+    server.put_value('batches', batches)
+    # Start timer
+    start = time.time()
+    server.cmd_call('train', 'p_mp_vp', 'p', 'mp', 'vp', 'mask', 'batches')
+    # End timer
+    end = time.time()
+    p_mp_vp = server.get_value('p_mp_vp')
 
-#     # Backpropagation
-#     optimizer.zero_grad(set_to_none=True)
-#     loss.backward()
-#     # Optimization
-#     optimizer.step()
-#     scheduler.step()
+print("futhark training time", end - start)
 
-# if device.type == 'cuda':
-#     torch.cuda.synchronize()
-# # End timer
-# end = time.time()
-# print("torch training time", end - start)
-
-# # # -------------------------------------
-# # # TRAINING FUT
-# print("Training Futhark")
-
-# #Preprocessing
-# # All batches
-# batches = np.zeros((n_batch, batch_size, seq_size)).astype(np.int64, copy=False)
-# # Attention mask
-# mask = -1*big_num*cau_mask
-
-# # We use batch_offsets to avoid adding an extra loop that extracts the batches
-# batch_offsets = np.arange(batch_size)
-
-# # Call server and put values
-# with futhark_server.Server(futhark) as server:
-#     for k , data in fwdic.items():
-#         server.put_value(k, data)
-#     server.cmd_call('to_params', 'p', *fwdic.keys())
-#     server.cmd_call('zero_params', 'mp')
-#     server.cmd_call('zero_params', 'vp')
-#     server.put_value('mask', mask)
-
-#     for step in range(n_batch):
-#         batches[step] = futhark_data[(batch_offsets + step * batch_size) % len(docs)]
-
-#     server.put_value('batches', batches)
-#     # Start timer
-#     start = time.time()
-#     server.cmd_call('train', 'p_mp_vp', 'p', 'mp', 'vp', 'mask', 'batches')
-#     # End timer
-#     end = time.time()
-#     p_mp_vp = server.get_value('p_mp_vp')
-
-# print("futhark training time", end - start)
-
-# for i , k in enumerate(fdimdic.keys()):
-#     fwdic[k] = p_mp_vp[i]
-#     fmdic[k] = p_mp_vp[i + 9]
-#     fmdic[k] = p_mp_vp[i + 18]
+for i , k in enumerate(fdimdic.keys()):
+    fwdic[k] = p_mp_vp[i]
+    fmdic[k] = p_mp_vp[i + 9]
+    fmdic[k] = p_mp_vp[i + 18]
 
 # #-------------------------------------
 # PROBS
