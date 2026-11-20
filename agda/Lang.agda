@@ -563,12 +563,12 @@ module Primitives where
 
     rmsnorm : ∀ {Γ} → E Γ (ar s) → E Γ (ar s)
     rmsnorm {s = s} x =
-      -- Let m := Ks (mean x) In
-      Let n := ⟨ x ⟩ ⊟ 𝟘 In
+      Let m := Ks (mean x) In
+      Let n := ⟨ x ⟩ ⊟ m In
       Let nn := n ⊠ n In
       Let ms := scaledown (len s) (Sum (λ i → sels nn i)) In
       Let scale := √ (ms ⊞ (scaledown 100000 𝟙)) In
-      Imaps λ i → (sels ⟨ x ⟩ i) // scale
+      Imaps λ i → (sels n i) // scale
 
     m-rmsnorm : ∀ {Γ} → E Γ (ar (s ⊗ p)) → E Γ (ar (s ⊗ p))
     m-rmsnorm {s} {p} {Γ} x = Imap {s} λ i → rmsnorm (sel ⟨ x ⟩ i)
@@ -578,9 +578,6 @@ module Primitives where
 
     cat : s * p ≈ r → E Γ $ ar $ s ⊗ p → E Γ $ ar $ r
     cat eq x = Imapb eq λ i → sel ⟨ x ⟩ i
-
-    -- cross-entropy : ∀ {Γ} (y probs : E Γ (ar s)) → (E Γ (ar s))
-    -- cross-entropy y probs = ⊟ (y ⊠ ln probs)
 
     cross-entropy : ∀ {Γ} (target logits : E Γ (ar s)) → (E Γ (ar []))
     cross-entropy {s} target probs =

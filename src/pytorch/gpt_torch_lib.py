@@ -58,10 +58,12 @@ class FeedForward(nn.Module):
 class Norm(nn.Module):
     def __init__(self, config):
         super().__init__()
-        self.norm = nn.RMSNorm(config.n_embd, eps=1e-5, elementwise_affine= config.elementwise_affine)
+        self.n_embd = config.n_embd
+        # self.norm = nn.RMSNorm(config.n_embd, eps=1e-5, elementwise_affine= config.elementwise_affine)
+        # self.norm = nn.LayerNorm(config.n_embd, eps=1e-5, elementwise_affine= config.elementwise_affine)
     def forward(self, x):
-            return self.norm(x)
-
+            # return self.norm(x)
+            return F.layer_norm(x, (self.n_embd, ), weight=None, bias=None, eps=1e-5)
 class Block(nn.Module):
     def __init__(self, config):
         super().__init__()

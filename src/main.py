@@ -307,33 +307,49 @@ torch_probatch_size =npsoftmax(torch_logits, 1)
 print("futhark loss", futhark_loss)
 print("torch   loss", torch_loss)
 
-input =  [[1,2,3],[4,5,6]]
-weight = [1,2,3]
-bias =   [4,5,6]
-tinput = torch.tensor(input, dtype= tdtype)
-tweight = torch.tensor(weight, dtype=tdtype)
-tbias = torch.tensor(bias, dtype=tdtype)
+# def _my_layer_norm(x, weight=1, bias=0, epsilon=1e-05,):
+#     m = np.mean(x)
+#     n = x - m
+#     nn = n * n
+#     ms = (np.sum(nn)/len(x))
+#     scale = np.sqrt(ms + epsilon)
+#     return (n/scale)*weight + bias
 
-ninput = np.array(input)
-nweight = np.array(weight)
-nbias = np.array(bias)
+# def my_layer_norm(x, weight=1, bias=0, epsilon=1e-05,):
+#     r = np.zeros(x.shape)
+#     for i in range(x.shape[0]):
+#         r[i] = _my_layer_norm(x[i], weight= weight, bias=bias, epsilon=epsilon)
+#     return r
 
-def _my_layer_norm(x, weight=1, bias=0, epsilon=1e-05,):
-    m = np.mean(x)
-    n = x - m
-    nn = n * n
-    ms = (np.sum(nn)/len(x))
-    scale = np.sqrt(ms + epsilon)
-    return (n/scale)*weight + bias
+# def _my_rms_norm(x, weight=1, epsilon=1e-05,):
+#     n = x
+#     nn = n * n
+#     ms = (np.sum(nn)/len(x))
+#     scale = np.sqrt(ms + epsilon)
+#     return (n/scale)*weight + bias
 
-def my_layer_norm(x, weight=1, bias=0, epsilon=1e-05,):
-    r = np.zeros(x.shape)
-    for i in range(x.shape[0]):
-        r[i] = _my_layer_norm(x[i], weight= weight, bias=bias, epsilon=epsilon)
-    return r
+# def my_rms_norm(x, weight=1, epsilon=1e-05,):
+#     r = np.zeros(x.shape)
+#     for i in range(x.shape[0]):
+#         r[i] = _my_rms_norm(x[i], weight= weight, epsilon=epsilon)
+#     return r
 
-# tout = nn.functional.layer_norm(tinput, (3,), weight=tweight, bias=tbias).cpu().numpy()
-# print(tout)
+# input =  [[1,2,3],[4,5,6]]
+# weight = [1,2,3]
+# bias =   [4,5,6]
+# tinput = torch.tensor(input, dtype= tdtype)
+# tweight = torch.tensor(weight, dtype=tdtype)
+# tbias = torch.tensor(bias, dtype=tdtype)
 
-# nout = my_layer_norm(ninput, weight=nweight, bias=nbias)
-# print(nout)
+# ninput = np.array(input)
+# nweight = np.array(weight)
+# nbias = np.array(bias)
+
+# print('rms norm')
+# tout = nn.functional.rms_norm(tinput, (3,), weight=tweight, eps=1e-05).cpu().numpy()
+
+# nout = my_rms_norm(ninput, weight=nweight)
+
+# print('mine vs torch')
+# for i in range(len(nout)):
+#     print(nout[i], tout[i])

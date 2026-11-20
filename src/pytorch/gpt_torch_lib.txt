@@ -26,15 +26,17 @@ class MultiHeadAttention(nn.Module):
         self.n_head = config.n_head
         self.head_dim = config.head_dim
         self.n_emd = config.n_embd
+        # all heads' q, k, v in one matmul instead of 3 * n_head small ones
         self.qkv = nn.Linear(config.n_embd, 3 * config.n_head * config.head_dim, bias=True)
         self.proj = nn.Linear(config.head_dim * config.n_head, config.n_embd, bias=True)
 
     def forward(self, x):
         B, T, C = x.shape
         q, k, v = self.qkv(x).split(self.n_head * self.head_dim, dim=-1)
-        q = q.view(B, T, self.n_head, self.head_dim).transpose(1, 2)
+        q = q.view(B, T, self.n_head, self.head_dim).transpose(1, 2) # (B, self.n_head, T, self.head_dim)
         k = k.view(B, T, self.n_head, self.head_dim).transpose(1, 2)
         v = v.view(B, T, self.n_head, self.head_dim).transpose(1, 2)
+        # fused causal attention (scale = self.head_dim**-0.5, same as before)
         out = F.scaled_dot_product_attention(q, k, v, is_causal=True)
         out = out.transpose(1, 2).contiguous().view(B, T, self.n_head * self.head_dim)
         out = self.proj(out)
@@ -53,20 +55,29 @@ class FeedForward(nn.Module):
     def forward(self, x):
         return self.net(x)
 
+class Norm(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        self.n_embd = config.n_embd
+        # self.norm = nn.RMSNorm(config.n_embd, eps=1e-5, elementwise_affine= config.elementwise_affine)
+        # self.norm = nn.LayerNorm(config.n_embd, eps=1e-5, elementwise_affine= config.elementwise_affine)
+    def forward(self, x):
+            # return self.norm(x)
+            return F.layer_norm(x, (self.n_embd, ), weight=None, bias=None, eps=1e-5)
 class Block(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.n_head = config.n_head
         self.head_dim = config.head_dim
         self.n_embd = config.n_embd
-        self.norm_a = nn.LayerNorm((config.n_embd,), eps=1e-5, elementwise_affine= config.elementwise_affine)
+        self.sa_norm = Norm(config)
         self.sa_heads = MultiHeadAttention(config)
-        self.norm_m = nn.LayerNorm((config.n_embd,), eps=1e-5, elementwise_affine= config.elementwise_affine)
+        self.ffwd_norm = Norm(config)
         self.ffwd = FeedForward(config)
 
     def forward(self, x):
-        x = x + self.sa_heads(self.norm_a(x))
-        x = x + self.ffwd(self.norm_a(x))
+        x = x + self.sa_heads(self.sa_norm(x))
+        x = x + self.ffwd(self.ffwd_norm(x))
         return x
 
 class GPT(nn.Module):
@@ -81,7 +92,7 @@ class GPT(nn.Module):
         self.token_embedding_table = nn.Embedding(config.vocab_size, config.n_embd)
         self.position_embedding_table = nn.Embedding(config.seq_size, config.n_embd)
         self.blocks = nn.Sequential(*[Block(config) for _ in range(config.n_layer)])
-        self.norm_f = nn.LayerNorm((config.n_embd,), eps=1e-5, elementwise_affine= config.elementwise_affine)
+        self.lm_norm = Norm(config)
         self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=True)
 
         # Better init
@@ -98,8 +109,8 @@ class GPT(nn.Module):
         tok_emb = self.token_embedding_table(idx) # (B, T, n_embd)
         pos_emb = self.position_embedding_table(torch.arange(T, device=idx.device)) # (T, n_embd)
         x = tok_emb + pos_emb # (B, T, n_embd)
-        x = self.norm_f(x)
         x = self.blocks(x) # (B, T, n_embd)
+        x = self.lm_norm(x)
         logits = self.lm_head(x) # (B, T, vocab_size)
 
         B, T, C = logits.shape
