@@ -241,8 +241,8 @@ module Extract where
   open Primitives
   open Microgpt
 
-  bgpt-forward-s : String
-  bgpt-forward-s = proj₂ (runState (to-str ( multiopt bgpt-forward-e OPT)
+  gpt-forward-s : String
+  gpt-forward-s = proj₂ (runState (to-str ( multiopt gpt-forward-e OPT)
     (from-named
       (ε
       ▹ "wp"
@@ -264,8 +264,8 @@ module Extract where
       ▹ "ws"
       ))) 0)
 
-  bgpt-loss-s : String
-  bgpt-loss-s = proj₂ (runState (to-str ( multiopt bgpt-loss-e OPT)
+  gpt-loss-s : String
+  gpt-loss-s = proj₂ (runState (to-str ( multiopt gpt-loss-e OPT)
     (from-named
       (ε
       ▹ "wp"
@@ -288,10 +288,10 @@ module Extract where
       ▹ "target"
       ))) 0)
 
-  grad-bgpt-loss-e = ee-OPT $ ee-dedup $ ee-OPT (grad bgpt-loss-e 𝟙 zero-ee)
+  grad-gpt-loss-e = ee-OPT $ ee-dedup $ ee-OPT (grad gpt-loss-e 𝟙 zero-ee)
 
-  grad-bgpt-loss-s : String
-  grad-bgpt-loss-s = pp bgpt-loss-e
+  grad-gpt-loss-s : String
+  grad-gpt-loss-s = pp gpt-loss-e
     (ε
       ▹ "wp"
       ▹ "wqry"
@@ -312,7 +312,7 @@ module Extract where
       ▹ "ws"
       ▹ "target")
 
-  grad-bgpt-loss-pp = Pretty.pretty bgpt-loss-e
+  grad-gpt-loss-pp = Pretty.pretty gpt-loss-e
     (ε
       ▹ "wp"
       ▹ "wqry"
