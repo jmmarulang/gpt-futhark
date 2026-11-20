@@ -705,48 +705,109 @@ module Primitives where
     gpt-forward-e : E _ _
     gpt-forward-e = Lcon (
                     ar (SL ⊗ ED) --wp
+                  ∷ ar ED --wa
+                  ∷ ar ED --ba
                   ∷ ar (ED ⊗ ED) --wqry
                   ∷ ar (ED ⊗ ED) --wkey
                   ∷ ar (ED ⊗ ED) --wval
                   ∷ ar (ED ⊗ ED) --wo
-                  ∷ ar (SL ⊗ SL) --mask
-                  ∷ ar (FD ⊗ ED) --wu
-                  ∷ ar (ED ⊗ FD) --wd
-                  ∷ ar (VO ⊗ ED) --wc
                   ∷ ar ED --bqry
                   ∷ ar ED --bkey
                   ∷ ar ED --bval
                   ∷ ar ED --bo
+                  ∷ ar (SL ⊗ SL) --mask
+                  ∷ ar ED --wm
+                  ∷ ar ED --bm
+                  ∷ ar (FD ⊗ ED) --wu
+                  ∷ ar (ED ⊗ FD) --wd
                   ∷ ar FD --bu
                   ∷ ar ED --bd
+                  ∷ ar ED --wf
+                  ∷ ar ED --bf
+                  ∷ ar (VO ⊗ ED) --wc
                   ∷ ar VO --bc
                   ∷ ar (BS ⊗ (SL ⊗ ED)) --ws
                   ∷ []) (ar ((BS ⊗ SL) ⊗ VO) ) ε
-                  λ wp wqry wkey wval wo mask wu wd wc bqry bkey bval bo bu bd bc ws
-                  → let θ = gptw PR wp 𝟙 𝟘 wqry wkey wval wo bqry bkey bval bo mask 𝟙 𝟘  wu bu wd bd 𝟙 𝟘 wc bc in
+                  λ wp wa ba wqry wkey wval wo bqry bkey bval bo mask wm bm wu wd bu bd wf bf wc bc ws
+                  → let θ = gptw PR wp wa ba wqry wkey wval wo bqry bkey bval bo mask wm bm wu bu wd bd wf bf wc bc in
                     gpt-forward {sl = SL} {vo = VO} {bs = BS} SC θ ws
 
     gpt-loss-e : E _ _
     gpt-loss-e = Lcon (
                     ar (SL ⊗ ED) --wp
+                  ∷ ar ED --wa
+                  ∷ ar ED --ba
                   ∷ ar (ED ⊗ ED) --wqry
                   ∷ ar (ED ⊗ ED) --wkey
                   ∷ ar (ED ⊗ ED) --wval
                   ∷ ar (ED ⊗ ED) --wo
-                  ∷ ar (SL ⊗ SL) --mask
-                  ∷ ar (FD ⊗ ED) --wu
-                  ∷ ar (ED ⊗ FD) --wd
-                  ∷ ar (VO ⊗ ED) --wc
                   ∷ ar ED --bqry
                   ∷ ar ED --bkey
                   ∷ ar ED --bval
                   ∷ ar ED --bo
+                  ∷ ar (SL ⊗ SL) --mask
+                  ∷ ar ED --wm
+                  ∷ ar ED --bm
+                  ∷ ar (FD ⊗ ED) --wu
+                  ∷ ar (ED ⊗ FD) --wd
                   ∷ ar FD --bu
                   ∷ ar ED --bd
+                  ∷ ar ED --wf
+                  ∷ ar ED --bf
+                  ∷ ar (VO ⊗ ED) --wc
                   ∷ ar VO --bc
                   ∷ ar (BS ⊗ (SL ⊗ ED)) --ws
                   ∷ ar ((BS ⊗ SL) ⊗ VO) --target
                   ∷ []) (ar []) ε
-                  λ wp wqry wkey wval wo mask wu wd wc bqry bkey bval bo bu bd bc ws target
-                  → let θ = gptw PR wp 𝟙 𝟘 wqry wkey wval wo bqry bkey bval bo mask 𝟙 𝟘 wu bu wd bd 𝟙 𝟘 wc bc in
+                  λ wp wa ba wqry wkey wval wo bqry bkey bval bo mask wm bm wu wd bu bd wf bf wc bc ws target
+                  → let θ = gptw PR wp wa ba wqry wkey wval wo bqry bkey bval bo mask wm bm wu bu wd bd wf bf wc bc in
                     gpt-loss {sl = SL} {vo = VO} {bs = BS} SC θ ws target
+
+    -- gpt-forward-e : E _ _
+    -- gpt-forward-e = Lcon (
+    --                 ar (SL ⊗ ED) --wp
+    --               ∷ ar (ED ⊗ ED) --wqry
+    --               ∷ ar (ED ⊗ ED) --wkey
+    --               ∷ ar (ED ⊗ ED) --wval
+    --               ∷ ar (ED ⊗ ED) --wo
+    --               ∷ ar (SL ⊗ SL) --mask
+    --               ∷ ar (FD ⊗ ED) --wu
+    --               ∷ ar (ED ⊗ FD) --wd
+    --               ∷ ar (VO ⊗ ED) --wc
+    --               ∷ ar ED --bqry
+    --               ∷ ar ED --bkey
+    --               ∷ ar ED --bval
+    --               ∷ ar ED --bo
+    --               ∷ ar FD --bu
+    --               ∷ ar ED --bd
+    --               ∷ ar VO --bc
+    --               ∷ ar (BS ⊗ (SL ⊗ ED)) --ws
+    --               ∷ []) (ar ((BS ⊗ SL) ⊗ VO) ) ε
+    --               λ wp wqry wkey wval wo mask wu wd wc bqry bkey bval bo bu bd bc ws
+    --               → let θ = gptw PR wp 𝟙 𝟘 wqry wkey wval wo bqry bkey bval bo mask 𝟙 𝟘  wu bu wd bd 𝟙 𝟘 wc bc in
+    --                 gpt-forward {sl = SL} {vo = VO} {bs = BS} SC θ ws
+
+    -- gpt-loss-e : E _ _
+    -- gpt-loss-e = Lcon (
+    --                 ar (SL ⊗ ED) --wp
+    --               ∷ ar (ED ⊗ ED) --wqry
+    --               ∷ ar (ED ⊗ ED) --wkey
+    --               ∷ ar (ED ⊗ ED) --wval
+    --               ∷ ar (ED ⊗ ED) --wo
+    --               ∷ ar (SL ⊗ SL) --mask
+    --               ∷ ar (FD ⊗ ED) --wu
+    --               ∷ ar (ED ⊗ FD) --wd
+    --               ∷ ar (VO ⊗ ED) --wc
+    --               ∷ ar ED --bqry
+    --               ∷ ar ED --bkey
+    --               ∷ ar ED --bval
+    --               ∷ ar ED --bo
+    --               ∷ ar FD --bu
+    --               ∷ ar ED --bd
+    --               ∷ ar VO --bc
+    --               ∷ ar (BS ⊗ (SL ⊗ ED)) --ws
+    --               ∷ ar ((BS ⊗ SL) ⊗ VO) --target
+    --               ∷ []) (ar []) ε
+    --               λ wp wqry wkey wval wo mask wu wd wc bqry bkey bval bo bu bd bc ws target
+    --               → let θ = gptw PR wp 𝟙 𝟘 wqry wkey wval wo bqry bkey bval bo mask 𝟙 𝟘 wu bu wd bd 𝟙 𝟘 wc bc in
+    --                 gpt-loss {sl = SL} {vo = VO} {bs = BS} SC θ ws target

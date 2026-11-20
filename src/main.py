@@ -51,7 +51,7 @@ n_layer = 1     # number of layers
 vocab_size = len(uchars) + 1 # vocabulary size including the padding token
 head_dim = n_embd // n_head # derived dimension of each head
 n_seq = batch_size * n_batch # derived total number of processed sequences
-elementwise_affine = False
+elementwise_affine = True
 big_num = 1e+17 # for the attention mask
 big_num = np.array(big_num, dtype=fdtype)
 # Parameters for the adam optimizer
@@ -116,15 +116,15 @@ for k , t in twdict.items():
 fdimdic = {
           'wt'   : (vocab_size, n_embd)  ,                         # token embedding table
           'wp'   : (seq_size, n_embd)    ,                         # position embedding table
-        #   'wa' : (n_embd)                , 'ba'   : (n_embd),      # attention normalization
+          'wa' : (n_embd)                , 'ba'   : (n_embd),      # attention normalization
           'wqry' : (n_embd, n_embd)      , 'bqry' : (n_embd),      # query weights
           'wkey' : (n_embd, n_embd)      , 'bkey' : (n_embd),      # key weights
           'wval' : (n_embd, n_embd)      , 'bval' : (n_embd),      # value weights
           'wo'   : (n_embd, n_embd)      , 'bo'   : (n_embd),      # attention projection weights
-        #   'wm'   : (n_embd)              , 'bm'   : (n_embd),      # mlp normalization
+          'wm'   : (n_embd)              , 'bm'   : (n_embd),      # mlp normalization
           'wu'   : (forward_dim, n_embd) , 'bu'   : (forward_dim), # mlp up weights
           'wd'   : (n_embd, forward_dim) , 'bd'   : (n_embd),      # mlp down weights
-        #   'wf' : (n_embd)                , 'bf'   : (n_embd),      # final normalization
+          'wf' : (n_embd)                , 'bf'   : (n_embd),      # final normalization
           'wc'   : (vocab_size, n_embd)  , 'bc'   : (vocab_size)   # vocabulary projection weights
           }
 
@@ -142,24 +142,24 @@ bqkv = np.reshape(twdict['blocks.0.sa_heads.qkv.bias'], (3, n_embd))
 
 fwdic['wt'][:,:] = twdict['token_embedding_table.weight']
 fwdic['wp'][:,:] = twdict['position_embedding_table.weight']
-# fwdic['wa'][:] = twdict['blocks.0.sa_norm.weight']
-# fwdic['ba'][:] = twdict['blocks.0.sa_norm.bias']
+fwdic['wa'][:] = twdict['blocks.0.sa_norm.weight']
+fwdic['ba'][:] = twdict['blocks.0.sa_norm.bias']
 fwdic['wqry'][:,:] = wqkv[0]; fwdic['bqry'][:] = bqkv[0]
 fwdic['wkey'][:,:] = wqkv[1]; fwdic['bkey'][:] = bqkv[1]
 fwdic['wval'][:,:] = wqkv[2]; fwdic['bval'][:] = bqkv[2]
 fwdic['wo'][:,:] = twdict['blocks.0.sa_heads.proj.weight']; fwdic['bo'][:] = twdict['blocks.0.sa_heads.proj.bias']
-# fwdic['wm'][:] = twdict['blocks.0.ffwd_norm.weight']
-# fwdic['bm'][:] = twdict['blocks.0.ffwd_norm.bias']
+fwdic['wm'][:] = twdict['blocks.0.ffwd_norm.weight']
+fwdic['bm'][:] = twdict['blocks.0.ffwd_norm.bias']
 fwdic['wu'][:,:] = twdict['blocks.0.ffwd.net.0.weight']; fwdic['bu'][:] = twdict['blocks.0.ffwd.net.0.bias']
 fwdic['wd'][:,:] = twdict['blocks.0.ffwd.net.2.weight']; fwdic['bd'][:] = twdict['blocks.0.ffwd.net.2.bias']
-# fwdic['wf'][:] = twdict['lm_norm.weight']
-# fwdic['bf'][:] = twdict['lm_norm.bias']
+fwdic['wf'][:] = twdict['lm_norm.weight']
+fwdic['bf'][:] = twdict['lm_norm.bias']
 fwdic['wc'][:,:] = twdict['lm_head.weight']; fwdic['bc'][:] = twdict['lm_head.bias']
 
 ones = np.ones((seq_size,seq_size), dtype=fdtype)
 cau_mask = (ones - np.tril(ones))
 
-# # -------------------------\------------
+# # -------------------------------------
 # # TRAINING TORCH
 
 # # We use batch_offsets to avoid adding an extra loop that extracts the batches
