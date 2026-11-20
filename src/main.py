@@ -36,7 +36,7 @@ stoi = {ch: i for i, ch in reversed(list(enumerate(vocab)))} # tokenizer
 # To play around with
 aot_compile = True # If true, torch model is compiled ahead of time
 batch_size = 50 # number of sequences per batch
-n_batch = 100 # number of batches
+n_batch = 1000 # number of batches
 tdtype = torch.float64
 fdtype = np.float64
 
@@ -84,7 +84,11 @@ futhark_data = np.array(data)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # Define the model
-torch_model = mt.GPT(n_head, head_dim, seq_size, vocab_size, n_embd, n_layer)\
+# torch_model = mt.GPT(n_head, head_dim, seq_size, vocab_size, n_embd, n_layer)\
+#     .to(device=device, dtype=tdtype)
+config = mt.GPTConfig(n_embd, seq_size, forward_dim, n_head, n_layer, vocab_size, head_dim, False)
+
+torch_model = mt.GPT(config)\
     .to(device=device, dtype=tdtype)
 
 # Define optimizer and scheduler
@@ -296,8 +300,40 @@ with torch.no_grad():
 torch_logits = torch_logits .cpu().numpy()
 torch_loss = torch_loss .cpu().numpy()
 torch_probatch_size =npsoftmax(torch_logits, 1)
-#-------------------------------------
+
+# -------------------------------------
 # TESTS
 
 print("futhark loss", futhark_loss)
 print("torch   loss", torch_loss)
+
+input =  [[1,2,3],[4,5,6]]
+weight = [1,2,3]
+bias =   [4,5,6]
+tinput = torch.tensor(input, dtype= tdtype)
+tweight = torch.tensor(weight, dtype=tdtype)
+tbias = torch.tensor(bias, dtype=tdtype)
+
+ninput = np.array(input)
+nweight = np.array(weight)
+nbias = np.array(bias)
+
+def _my_layer_norm(x, weight=1, bias=0, epsilon=1e-05,):
+    m = np.mean(x)
+    n = x - m
+    nn = n * n
+    ms = (np.sum(nn)/len(x))
+    scale = np.sqrt(ms + epsilon)
+    return (n/scale)*weight + bias
+
+def my_layer_norm(x, weight=1, bias=0, epsilon=1e-05,):
+    r = np.zeros(x.shape)
+    for i in range(x.shape[0]):
+        r[i] = _my_layer_norm(x[i], weight= weight, bias=bias, epsilon=epsilon)
+    return r
+
+# tout = nn.functional.layer_norm(tinput, (3,), weight=tweight, bias=tbias).cpu().numpy()
+# print(tout)
+
+# nout = my_layer_norm(ninput, weight=nweight, bias=nbias)
+# print(nout)

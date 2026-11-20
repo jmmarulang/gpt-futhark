@@ -558,10 +558,15 @@ module Primitives where
       Imap {u} λ i → Imaps {r} λ j → Sum {s} λ k →
       sels ((sel ⟨ w1 ⟩ i) ⊠ (sel ⟨ w2 ⟩ j)) k
 
+    mean : ∀ {Γ} → E Γ (ar s) → E Γ (ar [])
+    mean {s} x = scaledown (len s) (Sum λ i → sels ⟨ x ⟩ i)
+
     rmsnorm : ∀ {Γ} → E Γ (ar s) → E Γ (ar s)
     rmsnorm {s = s} x =
-      Let xx := x ⊠ x In
-      Let ms := scaledown (len s) (Sum (λ i → sels xx i)) In
+      -- Let m := Ks (mean x) In
+      Let n := ⟨ x ⟩ ⊟ 𝟘 In
+      Let nn := n ⊠ n In
+      Let ms := scaledown (len s) (Sum (λ i → sels nn i)) In
       Let scale := √ (ms ⊞ (scaledown 100000 𝟙)) In
       Imaps λ i → (sels ⟨ x ⟩ i) // scale
 

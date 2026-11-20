@@ -7,16 +7,28 @@ import random
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
+from dataclasses import dataclass
+
+@dataclass
+class GPTConfig               :
+    n_embd                    : int
+    seq_size                  : int
+    forward_dim               : int
+    n_head                    : int
+    n_layer                   : int
+    vocab_size                : int
+    head_dim                  : int
+    elementwise_affine        : bool
 
 class MultiHeadAttention(nn.Module):
-    def __init__(self, n_head, head_dim, n_embd):
+    def __init__(self, config):
         super().__init__()
-        self.n_head = n_head
-        self.head_dim = head_dim
-        self.n_emd = n_embd
+        self.n_head = config.n_head
+        self.head_dim = config.head_dim
+        self.n_emd = config.n_embd
         # all heads' q, k, v in one matmul instead of 3 * n_head small ones
-        self.qkv = nn.Linear(n_embd, 3 * n_head * head_dim, bias=True)
-        self.proj = nn.Linear(head_dim * n_head, n_embd, bias=True)
+        self.qkv = nn.Linear(config.n_embd, 3 * config.n_head * config.head_dim, bias=True)
+        self.proj = nn.Linear(config.head_dim * config.n_head, config.n_embd, bias=True)
 
     def forward(self, x):
         B, T, C = x.shape
@@ -31,45 +43,55 @@ class MultiHeadAttention(nn.Module):
         return out
 
 class FeedForward(nn.Module):
-    def __init__(self, n_embd):
+    def __init__(self, config):
         super().__init__()
-        self.n_emd = n_embd
+        self.n_emd = config.n_embd
         self.net = nn.Sequential(
-            nn.Linear(n_embd, 4 * n_embd, bias=True),
+            nn.Linear(config.n_embd, 4 * config.n_embd, bias=True),
             nn.ReLU(),
-            nn.Linear(4 * n_embd, n_embd, bias=True),
+            nn.Linear(4 * config.n_embd, config.n_embd, bias=True),
         )
 
     def forward(self, x):
         return self.net(x)
 
-class Block(nn.Module):
-    def __init__(self, n_head, head_dim, n_embd):
+class Norm(nn.Module):
+    def __init__(self, config):
         super().__init__()
-        self.n_head = n_head
-        self.head_dim = head_dim
-        self.n_embd = n_embd
-        self.sa_heads = MultiHeadAttention(n_head, head_dim, n_embd)
-        self.ffwd = FeedForward(n_embd)
+        self.norm = nn.RMSNorm(config.n_embd, eps=1e-5, elementwise_affine= config.elementwise_affine)
+    def forward(self, x):
+            return self.norm(x)
+
+class Block(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        self.n_head = config.n_head
+        self.head_dim = config.head_dim
+        self.n_embd = config.n_embd
+        self.sa_norm = Norm(config)
+        self.sa_heads = MultiHeadAttention(config)
+        self.ffwd_norm = Norm(config)
+        self.ffwd = FeedForward(config)
 
     def forward(self, x):
-        x = x + self.sa_heads(F.rms_norm(x, (self.n_embd,), eps=1e-5))
-        x = x + self.ffwd(F.rms_norm(x, (self.n_embd,), eps=1e-5))
+        x = x + self.sa_heads(self.sa_norm(x))
+        x = x + self.ffwd(self.ffwd_norm(x))
         return x
 
 class GPT(nn.Module):
-    def __init__(self, n_head, head_dim, seq_size, vocab_size, n_embd, n_layer):
+    def __init__(self, config):
         super().__init__()
-        self.n_head = n_head
-        self.head_dim = head_dim
-        self.seq_size = seq_size
-        self.vocab_size = vocab_size
-        self.n_embd = n_embd
-        self.n_layer = n_layer
-        self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
-        self.position_embedding_table = nn.Embedding(seq_size, n_embd)
-        self.blocks = nn.Sequential(*[Block(n_head, head_dim, n_embd) for _ in range(n_layer)])
-        self.lm_head = nn.Linear(n_embd, vocab_size, bias=True)
+        self.n_head = config.n_head
+        self.head_dim = config.head_dim
+        self.seq_size = config.seq_size
+        self.vocab_size = config.vocab_size
+        self.n_embd = config.n_embd
+        self.n_layer = config.n_layer
+        self.token_embedding_table = nn.Embedding(config.vocab_size, config.n_embd)
+        self.position_embedding_table = nn.Embedding(config.seq_size, config.n_embd)
+        self.blocks = nn.Sequential(*[Block(config) for _ in range(config.n_layer)])
+        self.lm_norm = Norm(config)
+        self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=True)
 
         # Better init
         self.apply(self._init_weights)
@@ -86,7 +108,7 @@ class GPT(nn.Module):
         pos_emb = self.position_embedding_table(torch.arange(T, device=idx.device)) # (T, n_embd)
         x = tok_emb + pos_emb # (B, T, n_embd)
         x = self.blocks(x) # (B, T, n_embd)
-        x = F.rms_norm(x, (self.n_embd,), eps=1e-5)
+        x = self.lm_norm(x)
         logits = self.lm_head(x) # (B, T, vocab_size)
 
         B, T, C = logits.shape
