@@ -36,7 +36,7 @@ stoi = {ch: i for i, ch in reversed(list(enumerate(vocab)))} # tokenizer
 # To play around with
 aot_compile = True # If true, torch model is compiled ahead of time
 batch_size = 50 # number of sequences per batch
-n_batch = 10000 # number of batches
+n_batch = 100 # number of batches
 tdtype = torch.float64
 fdtype = np.float64
 
@@ -140,21 +140,28 @@ for k , dim in fdimdic.items():
 wqkv = np.reshape(twdict['blocks.0.sa_heads.qkv.weight'], (3, n_embd, n_embd))
 bqkv = np.reshape(twdict['blocks.0.sa_heads.qkv.bias'], (3, n_embd))
 
-fwdic['wt'][:,:] = twdict['token_embedding_table.weight']
-fwdic['wp'][:,:] = twdict['position_embedding_table.weight']
-fwdic['wa'][:] = twdict['blocks.0.sa_norm.weight']
-fwdic['ba'][:] = twdict['blocks.0.sa_norm.bias']
-fwdic['wqry'][:,:] = wqkv[0]; fwdic['bqry'][:] = bqkv[0]
-fwdic['wkey'][:,:] = wqkv[1]; fwdic['bkey'][:] = bqkv[1]
-fwdic['wval'][:,:] = wqkv[2]; fwdic['bval'][:] = bqkv[2]
-fwdic['wo'][:,:] = twdict['blocks.0.sa_heads.proj.weight']; fwdic['bo'][:] = twdict['blocks.0.sa_heads.proj.bias']
-fwdic['wm'][:] = twdict['blocks.0.ffwd_norm.weight']
-fwdic['bm'][:] = twdict['blocks.0.ffwd_norm.bias']
-fwdic['wu'][:,:] = twdict['blocks.0.ffwd.net.0.weight']; fwdic['bu'][:] = twdict['blocks.0.ffwd.net.0.bias']
-fwdic['wd'][:,:] = twdict['blocks.0.ffwd.net.2.weight']; fwdic['bd'][:] = twdict['blocks.0.ffwd.net.2.bias']
-fwdic['wf'][:] = twdict['lm_norm.weight']
-fwdic['bf'][:] = twdict['lm_norm.bias']
-fwdic['wc'][:,:] = twdict['lm_head.weight']; fwdic['bc'][:] = twdict['lm_head.bias']
+fwdic['wt'][:,:]   = twdict['token_embedding_table.weight']
+fwdic['wp'][:,:]   = twdict['position_embedding_table.weight']
+fwdic['wa'][:]     = twdict['blocks.0.sa_norm.weight']
+fwdic['ba'][:]     = twdict['blocks.0.sa_norm.bias']
+fwdic['wqry'][:,:] = wqkv[0]
+fwdic['bqry'][:]   = bqkv[0]
+fwdic['wkey'][:,:] = wqkv[1]
+fwdic['bkey'][:]   = bqkv[1]
+fwdic['wval'][:,:] = wqkv[2]
+fwdic['bval'][:]   = bqkv[2]
+fwdic['wo'][:,:]   = twdict['blocks.0.sa_heads.proj.weight']
+fwdic['bo'][:]     = twdict['blocks.0.sa_heads.proj.bias']
+fwdic['wm'][:]     = twdict['blocks.0.ffwd_norm.weight']
+fwdic['bm'][:]     = twdict['blocks.0.ffwd_norm.bias']
+fwdic['wu'][:,:]   = twdict['blocks.0.ffwd.net.0.weight']
+fwdic['bu'][:]     = twdict['blocks.0.ffwd.net.0.bias']
+fwdic['wd'][:,:]   = twdict['blocks.0.ffwd.net.2.weight']
+fwdic['bd'][:]     = twdict['blocks.0.ffwd.net.2.bias']
+fwdic['wf'][:]     = twdict['lm_norm.weight']
+fwdic['bf'][:]     = twdict['lm_norm.bias']
+fwdic['wc'][:,:]   = twdict['lm_head.weight']
+fwdic['bc'][:]     = twdict['lm_head.bias']
 
 ones = np.ones((seq_size,seq_size), dtype=fdtype)
 cau_mask = (ones - np.tril(ones))
@@ -317,50 +324,3 @@ torch_probatch_size =npsoftmax(torch_logits, 1)
 
 print("futhark loss", futhark_loss)
 print("torch   loss", torch_loss)
-
-# def _my_layer_norm(x, weight=1, bias=0, epsilon=1e-05,):
-#     m = np.mean(x)
-#     n = x - m
-#     nn = n * n
-#     ms = (np.sum(nn)/len(x))
-#     scale = np.sqrt(ms + epsilon)
-#     return (n/scale)*weight + bias
-
-# def my_layer_norm(x, weight=1, bias=0, epsilon=1e-05,):
-#     r = np.zeros(x.shape)
-#     for i in range(x.shape[0]):
-#         r[i] = _my_layer_norm(x[i], weight= weight, bias=bias, epsilon=epsilon)
-#     return r
-
-# def _my_rms_norm(x, weight=1, epsilon=1e-05,):
-#     n = x
-#     nn = n * n
-#     ms = (np.sum(nn)/len(x))
-#     scale = np.sqrt(ms + epsilon)
-#     return (n/scale)*weight + bias
-
-# def my_rms_norm(x, weight=1, epsilon=1e-05,):
-#     r = np.zeros(x.shape)
-#     for i in range(x.shape[0]):
-#         r[i] = _my_rms_norm(x[i], weight= weight, epsilon=epsilon)
-#     return r
-
-# input =  [[1,2,3],[4,5,6]]
-# weight = [1,2,3]
-# bias =   [4,5,6]
-# tinput = torch.tensor(input, dtype= tdtype)
-# tweight = torch.tensor(weight, dtype=tdtype)
-# tbias = torch.tensor(bias, dtype=tdtype)
-
-# ninput = np.array(input)
-# nweight = np.array(weight)
-# nbias = np.array(bias)
-
-# print('rms norm')
-# tout = nn.functional.rms_norm(tinput, (3,), weight=tweight, eps=1e-05).cpu().numpy()
-
-# nout = my_rms_norm(ninput, weight=nweight)
-
-# print('mine vs torch')
-# for i in range(len(nout)):
-#     print(nout[i], tout[i])
