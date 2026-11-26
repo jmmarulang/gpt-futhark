@@ -110,11 +110,11 @@ module _ where
   data Bop : Set where
     ⊞ₒ ⊠ₒ : Bop
 
-  data Mop : BT → S → S → S → Set where
-    imapsₒ : Mop B s [] s
-    imapₒ  : q ≡ s ⊗ p → Mop B s p q
-    imapbₒ : s * p ≈ q → Mop B s p q
-    sumₒ   : B ≡ ℝ → Mop B s p p
+  data Mop : S → S → S → Set where
+    imapsₒ : Mop s [] s
+    imapₒ  : q ≡ s ⊗ p → Mop s p q
+    imapbₒ : s * p ≈ q → Mop s p q
+    sumₒ   : Mop s p p
 
   data Sop  : S → S → S → Set where
     selsₒ : Sop s s []
@@ -128,7 +128,7 @@ module _ where
     uop        : Uop → E Γ (ar s) → E Γ (ar s)
     bop        : Bop → E Γ (ar s) → E Γ (ar s) → E Γ (ar s)
 
-    mop        : Mop B s p q → E (Γ ▹ ix s) (ar′ p B) → E Γ (ar′ q B)
+    mop        : Mop s p q → E (Γ ▹ ix s) (ar p) → E Γ (ar q)
     sop        : Sop s p q → E Γ (ar′ s B) → E Γ (ix p) → E Γ (ar′ q B)
 
     zero-but   : E Γ (ix s) → E Γ (ix s) → E Γ (ar p) → E Γ (ar p)
@@ -150,14 +150,14 @@ module _ where
   pattern _⊞_ a b = bop ⊞ₒ a b
   pattern _⊠_ a b = bop ⊠ₒ a b
 
-  pattern imaps {B = B} {s = s} {p = p} {q = q} a =
-    mop {B = B} {s = s} {p = p} {q = q} imapsₒ a
+  pattern imaps {s = s} {p = p} {q = q} a =
+    mop {s = s} {p = p} {q = q} imapsₒ a
   pattern imap′ {s = s} {p = p} {q = q} a b =
     mop {s = s} {p = p} {q = q} (imapₒ a) b
   pattern imapb {s = s} {p = p} {q = q} a b =
     mop {s = s} {p = p} {q = q} (imapbₒ a) b
-  pattern sum′ {s = s} {p = p} {q = q} a b =
-    mop {s = s} {p = p} {q = q} (sumₒ a) b
+  pattern sum {s = s} {p = p} {q = q} a =
+    mop {s = s} {p = p} {q = q} sumₒ a
 
   pattern sels {Γ = Γ} {s = s} {p = p} {q = q} a b =
     sop {s = s} {p = p} {q = q} {Γ = Γ} selsₒ a b
@@ -166,11 +166,11 @@ module _ where
   pattern selb {s = s} {p = p} {q = q} a b c =
     sop {s = s} {p = p} {q = q} (selbₒ a) b c
 
-  imap : E (Γ ▹ ix s) (ar′ p B) → E Γ (ar′ (s ⊗ p) B)
+  imap : E (Γ ▹ ix s) (ar p) → E Γ (ar (s ⊗ p))
   imap e = imap′ refl e
 
-  sum : E (Γ ▹ ix s) (ar p) → E Γ (ar p)
-  sum e = sum′ refl e
+  -- sum : E (Γ ▹ ix s) (ar p) → E Γ (ar p)
+  -- sum e = sum′ refl e
 
   sel : E Γ (ar′ (s ⊗ p) B) → E Γ (ix s) → E Γ (ar′ p B)
   sel e i = sel′ refl e i
@@ -419,8 +419,8 @@ module Syntax where
 
   -- Use GE GVar and V to define HOAS-style imap, imaps, and impab
   Imap : ∀ {Γ}
-       → (GE (Γ ▹ ix s) (ix s) → E (Γ ▹ ix s) (ar′ p B))
-       → E Γ (ar′ (s ⊗ p) B)
+       → (GE (Γ ▹ ix s) (ix s) → E (Γ ▹ ix s) (ar p))
+       → E Γ (ar (s ⊗ p))
   --Imap f = imap (f λ {Δ} ⦃ p ⦄ → var (V v₀))
   Imap f = imap (f (var (V v₀)))
 
@@ -430,14 +430,14 @@ module Syntax where
   Sum f = sum (f λ {Δ} ⦃ p ⦄ → var (V v₀))
 
   Imaps : ∀ {Γ}
-        → (GE (Γ ▹ ix s) (ix s) → E (Γ ▹ ix s) (ar′ [] B))
-        → E Γ (ar′ s B)
+        → (GE (Γ ▹ ix s) (ix s) → E (Γ ▹ ix s) (ar []))
+        → E Γ (ar s)
   Imaps f = imaps (f λ {Δ} ⦃ p ⦄ → var (V v₀))
 
   Imapb : ∀ {Γ}
         → s * p ≈ q
-        → (GE (Γ ▹ ix s) (ix s) → E (Γ ▹ ix s) (ar′ p B))
-        → E Γ (ar′ q B)
+        → (GE (Γ ▹ ix s) (ix s) → E (Γ ▹ ix s) (ar p))
+        → E Γ (ar q)
   Imapb p f = imapb p (f λ {Δ} ⦃ p ⦄ → var (V v₀))
 
   Let-syntax : ∀ {Γ}
