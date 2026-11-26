@@ -87,16 +87,16 @@ module _ where
   fresh-ix [] = pure []
   fresh-ix (x ∷ s) = _∷_ <$> fresh-i x <*> fresh-ix s
 
-  named-i : ∀ {n} → ℕ → String → SFin n
-  named-i m str = val (str ++ printf "%u" m)
+  named-i : ∀ {n} → String → SFin n
+  named-i str = val str
 
-  named-ix′ : ∀ s → ℕ → String → Ix s
-  named-ix′ [] m str = []
-  named-ix′ (n ∷ s) m str = named-i m str ∷ named-ix′ s (suc m) str
+  named-ix′ : ∀ s → String → Ix s
+  named-ix′ [] str = []
+  named-ix′ (n ∷ s) str = named-i str ∷ named-ix′ s str
 
   -- CHECK
   named-ix : String → Fut (ari s p)
-  named-ix {s} {p} str = full (λ i → return (named-ix′ p zero str))
+  named-ix {s} {p} str = full (λ i → return (named-ix′ p str))
 
   shape-args : S → String
   shape-args s = intersperse " " $ L.map show-nat s
@@ -145,6 +145,17 @@ module _ where
   to-sel : Ix s → String → String
   to-sel i a = a ++ ix-join (ix-map (printf "[%s]") i) ""
 
+  range-i′ : ℕ → Ix s
+  range-i′ {[]} n = []
+  range-i′ {m ∷ s} n = (val $ printf "%u" n) ∷ range-i′ (suc n)
+
+  range-i : Ix s
+  range-i = range-i′ 0
+
+  ix-zipwith : ((a b : String) → String) → Ix s → Ix s → Ix s
+  ix-zipwith f [] [] = []
+  ix-zipwith f (x ∷ i) (y ∷ j) = val (f (getVal x) (getVal y)) ∷ ix-zipwith f i j
+
   {-# TERMINATING #-} -- What is wrong with you, Agda?
   sem-sel-fut : Fut (ar′ s B) → Ix s → State ℕ (Futᵇ B)
   sem-sel-fut {B = ℝ} (full x) i = do
@@ -157,16 +168,15 @@ module _ where
     return ((h ∘ f) , b)
   sem-sel-fut {B = ℙ p} (full {s = s} f) i = do
     x ← f i
-    return $ ix-map (λ st → to-sel i st) x
+    let y = ix-map (λ st → (to-sel i st)) x
+    let r = ix-map {p} (printf "[%s]") range-i
+    return $ ix-zipwith _++_ y r
+    -- return $ ix-map (λ st → (to-sel i st)) x
 
   to-softmax : (s : S) → (i : Ix s) → (e : String) → String
   to-softmax [] i e = e
   to-softmax s  i e = printf "(isoftmax%u %s (\\%s -> %s))" (dim s) (shape-args s)
                          (ix-join i " ") e
-
-  ix-zipwith : ((a b : String) → String) → Ix s → Ix s → Ix s
-  ix-zipwith f [] [] = []
-  ix-zipwith f (x ∷ i) (y ∷ j) = val (f (getVal x) (getVal y)) ∷ ix-zipwith f i j
 
   ix-eq : (i j : Ix s) → String
   ix-eq i j = ix-join (ix-zipwith (printf "(%s == %s)") i j) " && "
@@ -373,11 +383,11 @@ _,,_ = _,′_
 
 test₂-e : E _ _
 test₂-e = Lcon (ar (5 ∷ 5 ∷ []) ∷ ari (3 ∷ 3 ∷ []) (5 ∷ 5 ∷ []) ∷ []) (ar _) ε
-          λ w is → Imap λ i → sel w (sel is i)
+          λ w is → Imap {3 ∷ 3 ∷ []} λ i → sel w (sel is i)
 
 test₂-s : String
 test₂-s = proj₂ (runState (to-str test₂-e ((_ , full (mkar "a")) , named-ix "id")) 0)
--- "(imap2 3 3 (\\i0 i1 -> a[id0[i0][i1]][id1[i0][i1]]))"
+-- "(imap2 3 3 (\\i0 i1 -> a[id[i0][i1][0]][id[i0][i1][1]]))"
 
 test₃-e : E _ _
 test₃-e = Lcon (ar (5 ∷ []) ∷ ari (3 ∷ []) (5 ∷ []) ∷ []) (ar (3 ∷ [])) ε
@@ -395,8 +405,7 @@ test₄-e = Lcon (ar (5 ∷ []) ∷ []) (ar []) ε
 
 test₄-s : String
 test₄-s = proj₂ (runState (to-str test₄-e (_ , full (mkar "a"))) 0)
--- Expected: "(isum1 5 (\\i0 -> (let x1 = a[i0]
--- in (x1 F.+ x1))))"
+-- Expected: "(isum1 5 (\\i0 -> (let x1 = a[i0] in (x1 F.+ x1))))"
 
 -- Summing an imap (combined) must produce a single isum.
 test₅-e : E _ _
@@ -414,6 +423,11 @@ test₆-e = Lcon (ar (5 ∷ []) ∷ []) (ar (5 ∷ [])) ε
 
 test₆-s : String
 test₆-s = proj₂ (runState (to-str test₆-e (_ , full (mkar "a"))) 0)
--- Expected: "(let x1 = (isoftmax1 5 (\\i0 -> (let x2 = (imap1 5 (\\i4 -> (a[i4] F.+ a[i4])))
+-- Expected:
+-- "(let x1 = (isoftmax1 5 (\\i0 -> (let x2 = (imap1 5 (\\i4 -> (a[i4] F.+ a[i4])))
+-- in x2[i0])))
+-- in (imap1 5 (\\i3 -> x1[i3])))"
+
+-- "(let x1 = (isoftmax1 5 (\\i0 -> (let x2 = (imap1 5 (\\i4 -> (a[i4] F.+ a[i4])))
 -- in x2[i0])))
 -- in (imap1 5 (\\i3 -> x1[i3])))"
