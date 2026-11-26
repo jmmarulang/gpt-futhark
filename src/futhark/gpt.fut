@@ -519,7 +519,7 @@ def grad [bs] (p : params) (tokens : [bs][sl]i64) (mask : [sl][sl]f64) :
    -- cal gradient
    let (dwp, dwa, dba, dwqry, dbqry, dwkey, dbkey, dwval, dbval, dwo, dbo, dwm, dbm, dwu, dbu, dwd, dbd, dwf, dbf, dwc, dbc, dws) =
     (nn64.grad
-(wp:> [16][16]f64)
+    (wp:> [16][16]f64)
     (wa:> [16]f64) (ba:> [16]f64)
     (wqry:> [16][16]f64) (bqry:> [16]f64)
     (wkey:> [16][16]f64) (bkey:> [16]f64)

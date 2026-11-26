@@ -24,9 +24,6 @@ module _ where
   S = List ℕ
   P = All Fin
 
-  -- ι : ℕ → S
-  -- ι n = n ∷ []
-
   [_] : ℕ → S
   [_] n = n ∷ []
 
@@ -51,6 +48,9 @@ module _ where
 
   ++-[]₁ : s ⊗ p ≡ [] → s ≡ []
   ++-[]₁ {[]} {p} eq = refl
+
+  ++-[]₂ : s ⊗ p ≡ [] → p ≡ []
+  ++-[]₂ {[]} {p} eq = eq
 
   ++-neutʳ : s ⊗ [] ≡ s
   ++-neutʳ {[]} = refl

@@ -109,14 +109,13 @@ train_model = torch.compile(torch_model,mode='reduce-overhead', fullgraph=True)
 
 twdict = torch_model.state_dict().copy()
 for k , t in twdict.items():
-    # print(k)
     twdict[k] = t.cpu().numpy().astype(fdtype)
 
 # Weight dimensions
 fdimdic = {
           'wt'   : (vocab_size, n_embd)  ,                         # token embedding table
           'wp'   : (seq_size, n_embd)    ,                         # position embedding table
-          'wa' : (n_embd)                , 'ba'   : (n_embd),      # attention normalization
+          'wa'   : (n_embd)              , 'ba'   : (n_embd),      # attention normalization
           'wqry' : (n_embd, n_embd)      , 'bqry' : (n_embd),      # query weights
           'wkey' : (n_embd, n_embd)      , 'bkey' : (n_embd),      # key weights
           'wval' : (n_embd, n_embd)      , 'bval' : (n_embd),      # value weights
@@ -124,7 +123,7 @@ fdimdic = {
           'wm'   : (n_embd)              , 'bm'   : (n_embd),      # mlp normalization
           'wu'   : (forward_dim, n_embd) , 'bu'   : (forward_dim), # mlp up weights
           'wd'   : (n_embd, forward_dim) , 'bd'   : (n_embd),      # mlp down weights
-          'wf' : (n_embd)                , 'bf'   : (n_embd),      # final normalization
+          'wf'   : (n_embd)              , 'bf'   : (n_embd),      # final normalization
           'wc'   : (vocab_size, n_embd)  , 'bc'   : (vocab_size)   # vocabulary projection weights
           }
 
@@ -315,8 +314,8 @@ with torch.no_grad():
     x = torch.tensor(torch_tokens[:,:n], dtype=torch.long, device= device)
     y = torch.tensor(torch_target, dtype=torch.long, device= device)
     torch_logits, torch_loss = torch_model(x , y)
-torch_logits = torch_logits .cpu().numpy()
-torch_loss = torch_loss .cpu().numpy()
+torch_logits = torch_logits.cpu().numpy()
+torch_loss = torch_loss.cpu().numpy()
 torch_probatch_size =npsoftmax(torch_logits, 1)
 
 # -------------------------------------
@@ -324,3 +323,6 @@ torch_probatch_size =npsoftmax(torch_logits, 1)
 
 print("futhark loss", futhark_loss)
 print("torch   loss", torch_loss)
+
+# print(torch_model.lm_head.weight[0][0].detach().numpy())
+# print(torch_model.token_embedding_table.weight[0][0].detach().numpy())

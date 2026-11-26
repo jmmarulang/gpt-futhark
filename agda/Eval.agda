@@ -20,9 +20,12 @@ module Eval (r : Real) (rp : RealProp r) where
   open Real.Real r
   open RealProp rp
 
+  ⟦_⟧ᵇ : BT → Set
+  ⟦ ℝ ⟧ᵇ = R
+  ⟦ ℙ s ⟧ᵇ = P s
+
   ⟦_⟧ˢ : IS → Set
-  ⟦ ix s ⟧ˢ = P s
-  ⟦ ar s ⟧ˢ = Ar s R
+  ⟦ ar′ s B ⟧ˢ = Ar s ⟦ B ⟧ᵇ
 
   ⟦_⟧ᶜ : Ctx → Set
   ⟦ ε ⟧ᶜ = ⊤
@@ -33,13 +36,13 @@ module Eval (r : Real) (rp : RealProp r) where
   lookup (there v) (ρ , _) = lookup v ρ
 
   zbs : (i j : P s) → (P s → R) → R
-  zbs i j x with i ≟ₚ j
-  ... | yes _ = x i
-  ... | no _ = fromℕ 0
+  zbs i j f with i ≟ₚ j
+  ... | yes _ = f i
+  ... | no _  = fromℕ 0
 
   zb : (i j : P s) → ⟦ ar p ⟧ˢ → ⟦ ar p ⟧ˢ
-  zb i j x with i ≟ₚ j
-  ... | yes _ = x
+  zb i j f with i ≟ₚ j
+  ... | yes _ = f
   ... | no _ = K (fromℕ 0)
 
   Softmax : ⟦ ar p ⟧ˢ → ⟦ ar p ⟧ˢ
@@ -51,54 +54,50 @@ module Eval (r : Real) (rp : RealProp r) where
   eval (var x) ρ = lookup x ρ
   eval 𝟘 ρ = K (fromℕ 0)
   eval 𝟙 ρ = K (fromℕ 1)
-  eval (imaps e) ρ i = eval e (ρ , i) []
-  eval (sels e e₁) ρ = K (eval e ρ (eval e₁ ρ))
-  eval (imap′ refl e) ρ i = let i , j = splitP i in eval e (ρ , i) j
-  eval (sel′ refl e e₁) ρ = nest (eval e ρ) (eval e₁ ρ)
-  eval (imapb x e) ρ = Ar.imapb (λ i → eval e (ρ , i)) x
-  eval (selb x e e₁) ρ = Ar.selb (eval e ρ) x (eval e₁ ρ)
-  eval (sum e) ρ = Ar.sum (Ar.zipWith _+_) (Ar.K (fromℕ 0)) (λ i → eval e (ρ , i))
-  eval (zero-but e e₁ e₂) ρ = zb (eval e ρ) (eval e₁ ρ) (eval e₂ ρ)
-  -- eval (E.slide e x e₁ x₁) ρ = Ar.slide (eval e ρ) x (eval e₁ ρ) x₁
-  -- eval (E.backslide e e₁ x x₁) ρ = Ar.backslide (eval e ρ) (eval e₁ ρ) x (fromℕ 0) x₁
-  -- eval (logi e) ρ = Ar.map logisticʳ (eval e ρ)
-  eval (e ⊞ e₁) ρ = Ar.zipWith _+_ (eval e ρ) (eval e₁ ρ)
-  eval (e ⊠ e₁) ρ = Ar.zipWith _*_ (eval e ρ) (eval e₁ ρ)
-  eval (scaledown x e) ρ = Ar.map (_÷ fromℕ x) (eval e ρ)
   eval (⊟ e) ρ = Ar.map -_ (eval e ρ)
-  eval (let′ e e₁) ρ = eval e₁ (ρ , eval e ρ)
-  -- Jairo made
   eval (relu e) ρ = Ar.map (_∨_ 0ᵣ) (eval e ρ)
-  eval (𝕚+ e) ρ = Ar.map I+ (eval e ρ)
   eval (√ e) ρ = Ar.map √_ (eval e ρ)
   eval (𝟙/ e) ρ = Ar.map 1/_ (eval e ρ)
+  eval (𝕚+ e) ρ = Ar.map I+ (eval e ρ)
   eval (ln e) ρ = Ar.map log (eval e ρ)
-  eval (ℙ e) ρ = Softmax (eval e ρ)
+  eval (softmax e) ρ = Softmax (eval e ρ)
+  eval (scaledown x e) ρ = Ar.map (_÷ fromℕ x) (eval e ρ)
+  eval (e ⊞ e₁) ρ = Ar.zipWith _+_ (eval e ρ) (eval e₁ ρ)
+  eval (e ⊠ e₁) ρ = Ar.zipWith _*_ (eval e ρ) (eval e₁ ρ)
+  eval (imaps e) ρ i = eval e (ρ , λ _ → i) []
+  eval (imap′ refl e) ρ i = let i , j = splitP i in eval e (ρ , λ _ → i) j
+  eval (imapb x e) ρ = Ar.imapb (λ i → eval e (ρ , λ _ → i)) x
+  eval (sum′ refl e) ρ = Ar.sum (Ar.zipWith _+_) (Ar.K (fromℕ 0)) (λ i → eval e (ρ , λ _ → i))
+  eval (sels e e₁) ρ = K (eval e ρ (eval e₁ ρ []))
+  eval (sel′ refl e e₁) ρ = nest (eval e ρ) (eval e₁ ρ [])
+  eval (selb x e e₁) ρ = Ar.selb (eval e ρ) x (eval e₁ ρ [])
+  eval (zero-but e e₁ e₂) ρ = zb (eval e ρ []) (eval e₁ ρ []) (eval e₂ ρ)
+  eval (let′ e e₁) ρ = eval e₁ (ρ , eval e ρ)
+
+  ⟦_⟧ : E Γ is → ⟦ Γ ⟧ᶜ → ⟦ is ⟧ˢ
+  ⟦ e ⟧ = eval e
 
   _≈ᵃ_ : Ar s X → Ar s X → Set
   a ≈ᵃ b = ∀ i → a i ≡ b i
 
+  -- CHECK: Is this correct?
   _≈ˢ_ : (a b : ⟦ is ⟧ˢ) → Set
-  _≈ˢ_ {ix s} a b = a ≡ b
-  _≈ˢ_ {ar s} a b = a ≈ᵃ b
+  _≈ˢ_ {ar′ s B} a b = a ≈ᵃ b
 
   _≈ᵉ_ : E Γ is → E Γ is → Set
   _≈ᵉ_ {Γ} a b = (ρ : ⟦ Γ ⟧ᶜ) → eval a ρ ≈ˢ eval b ρ
 
   reflᵉ : ∀ (e : E Γ is) → e ≈ᵉ e
-  reflᵉ {is} {ix x} = λ e ρ → refl
-  reflᵉ {is} {ar x} = λ e ρ i → refl
+  reflᵉ {is} {ar′ s B} e ρ i = refl
 
   reflˢ : ∀ {x : ⟦ is ⟧ˢ} → x ≈ˢ x
-  reflˢ {ix x₁}  = refl
-  reflˢ {ar x₁} i = refl
+  reflˢ {ar′ s B} i = refl
 
   reflᵃ : ∀ {a : Ar s X} → a ≈ᵃ a
   reflᵃ i = refl
 
   symˢ : {a b : ⟦ is ⟧ˢ} → a ≈ˢ b → b ≈ˢ a
-  symˢ {ix x} {a} {b} refl = refl
-  symˢ {ar x} {a} {b} eq i = sym (eq i)
+  symˢ {ar′ x B} {a} {b} eq i = sym (eq i)
 
   infix 4 _∙ᵃ_
   _∙ᵃ_ : {a b c : Ar s X} → a ≈ᵃ b → b ≈ᵃ c → a ≈ᵃ c
@@ -106,8 +105,7 @@ module Eval (r : Real) (rp : RealProp r) where
 
   infix 4 _∙ˢ_
   _∙ˢ_ : {a b c : ⟦ is ⟧ˢ} → a ≈ˢ b → b ≈ˢ c → a ≈ˢ c
-  _∙ˢ_ {ix x} p q = p ∙ q
-  _∙ˢ_ {ar x} p q = p ∙ᵃ q
+  _∙ˢ_ {ar′ x B} p q = p ∙ᵃ q
 
   data _≈ᶜ_ : ⟦ Γ ⟧ᶜ → ⟦ Γ ⟧ᶜ → Set where
     ε : tt ≈ᶜ tt
@@ -130,42 +128,34 @@ module Eval (r : Real) (rp : RealProp r) where
   eval-cong (var x) eq = lookup-≈ᶜ eq x
   eval-cong 𝟘 eq = λ i → refl
   eval-cong 𝟙 eq = λ i → refl
-  eval-cong (imaps e) eq i = eval-cong e (eq ▹ refl) []
-  eval-cong (sels e e₁) eq i = eval-cong e eq (eval e₁ _) ∙ cong (eval e _) (eval-cong e₁ eq)
-  eval-cong (imap′ refl e) eq i = eval-cong e (eq ▹ refl) (splitP i .proj₂)
-  eval-cong (sel′ refl e e₁) eq i = eval-cong e eq (eval e₁ _ ++ i) ∙ cong (eval e _) (cong (_++ i) (eval-cong e₁ eq))
-  eval-cong (imapb x e) eq i = eval-cong e (eq ▹ refl) (ix-mod i x)
-  eval-cong (selb x e e₁) eq i = eval-cong e eq (ix-combine (eval e₁ _) i x)
-                                   ∙ cong (eval e _) (cong (λ t → ix-combine t i x) (eval-cong e₁ eq))
-  eval-cong (sum e) eq i = sum-inv _+_ (fromℕ 0) {λ i → eval e (_ , i)} i
-                             ∙ sum-cong _+_ (fromℕ 0) {(λ j → eval e (_ , j) i)}
-                                            (λ j → eval-cong e (eq ▹ refl) i)
-                             ∙ sym (sum-inv _+_ (fromℕ 0) {λ i → eval e (_ , i)} i)
-  eval-cong (zero-but e e₁ e₂) {ρ}{ν} eq i with eval e ρ ≟ₚ eval e₁ ρ | eval e ν ≟ₚ eval e₁ ν
-  ... | yes _ | yes _ = eval-cong e₂ eq i
-  ... | yes p | no q  = ⊥-elim (q (sym (eval-cong e eq) ∙ p ∙ eval-cong e₁ eq))
-  ... | no p  | yes q = ⊥-elim (p (eval-cong e eq ∙ q ∙ sym (eval-cong e₁ eq)))
-  ... | no _  | no _  = refl
-  -- eval-cong (E.slide e x e₁ x₁) eq i = eval-cong e₁ eq _
-  --                                      ∙ cong (eval e₁ _)
-  --                                             (cong (λ t → (t ⊕′ i) x₁ x) (eval-cong e eq))
-  -- eval-cong (E.backslide e e₁ x x₁) {ρ}{ν} eq i rewrite eval-cong e eq with (i ⊝′ eval e ν) x x₁
-  -- ... | yes (k , p) = eval-cong e₁ eq k
-  -- ... | no _ = refl
-  -- eval-cong (logi e) eq i = cong logisticʳ (eval-cong e eq i)
-  eval-cong (e ⊞ e₁) eq i = cong₂ _+_ (eval-cong e eq i) (eval-cong e₁ eq i)
-  eval-cong (e ⊠ e₁) eq i = cong₂ _*_ (eval-cong e eq i) (eval-cong e₁ eq i)
-  eval-cong (scaledown x e) eq i = cong (_÷ fromℕ x) (eval-cong e eq i)
   eval-cong (⊟ e) eq i = cong (-_) (eval-cong e eq i)
-  eval-cong (let′ e e₁) eq i = eval-cong e₁ (eq ▹ eval-cong e eq) i
-  -- Jairo made
   eval-cong (relu e) eq i = cong (_∨_ 0ᵣ) (eval-cong e eq i)
-  eval-cong (𝕚+ e) eq i = cong I+ (eval-cong e eq i)
   eval-cong (√ e) eq i = cong √_ (eval-cong e eq i)
   eval-cong (𝟙/ e) eq i = cong 1/_ (eval-cong e eq i)
+  eval-cong (𝕚+ e) eq i = cong I+ (eval-cong e eq i)
   eval-cong (ln e) eq i = cong log (eval-cong e eq i)
-  eval-cong (ℙ e) eq i = cong₂ _÷_ (cong e^_ (eval-cong e eq i))
+  eval-cong (uop softmaxₒ e) eq i = cong₂ _÷_ (cong e^_ (eval-cong e eq i))
     ((sum-cong _+_ _ {e^_ ∘ eval e _} (cong e^_ ∘ eval-cong e eq)))
+  eval-cong (scaledown x e) eq i = cong (_÷ fromℕ x) (eval-cong e eq i)
+  eval-cong (e ⊞ e₁) eq i = cong₂ _+_ (eval-cong e eq i) (eval-cong e₁ eq i)
+  eval-cong (e ⊠ e₁) eq i = cong₂ _*_ (eval-cong e eq i) (eval-cong e₁ eq i)
+  eval-cong (imaps e) eq i = eval-cong e (eq ▹ λ _ → refl) []
+  eval-cong (imap′ refl e) eq i = eval-cong e (eq ▹ λ _ → refl) (splitP i .proj₂)
+  eval-cong (imapb x e) eq i = eval-cong e (eq ▹ λ _ → refl) (ix-mod i x)
+  eval-cong (sum′ refl e) eq i = sum-inv _+_ (fromℕ 0) {λ i → eval e (_ , λ _ → i)} i
+                             ∙ sum-cong _+_ (fromℕ 0) {(λ j → eval e (_ , λ _ → j) i)}
+                                            (λ j → eval-cong e (eq ▹ λ _ → refl) i)
+                             ∙ sym (sum-inv _+_ (fromℕ 0) {λ i → eval e (_ , λ _ → i)} i)
+  eval-cong (sels e e₁) eq i = eval-cong e eq (eval e₁ _ []) ∙ cong (eval e _) (eval-cong e₁ eq [])
+  eval-cong (sel′ refl e e₁) eq i = eval-cong e eq (eval e₁ _ [] ++ i) ∙ cong (eval e _) (cong (_++ i) (eval-cong e₁ eq []))
+  eval-cong (selb x e e₁) eq i = eval-cong e eq (ix-combine (eval e₁ _ []) i x)
+                                   ∙ cong (eval e _) (cong (λ t → ix-combine t i x) (eval-cong e₁ eq []))
+  eval-cong (zero-but e e₁ e₂) {ρ}{ν} eq i with eval e ρ [] ≟ₚ eval e₁ ρ [] | eval e ν [] ≟ₚ eval e₁ ν []
+  ... | yes _ | yes _ = eval-cong e₂ eq i
+  ... | yes p | no q  = ⊥-elim (q (sym (eval-cong e eq []) ∙ p ∙ eval-cong e₁ eq []))
+  ... | no p  | yes q = ⊥-elim (p (eval-cong e eq [] ∙ q ∙ sym (eval-cong e₁ eq [])))
+  ... | no _  | no _  = refl
+  eval-cong (let′ e e₁) eq i = eval-cong e₁ (eq ▹ eval-cong e eq) i
 
   open WkSub hiding (_∙ˢ_)
 
@@ -193,42 +183,39 @@ module Eval (r : Real) (rp : RealProp r) where
   eval-wk w (var x) ρ = eval-wkv w x ρ
   eval-wk w 𝟘 ρ i = refl
   eval-wk w 𝟙 ρ i = refl
-  eval-wk w (imaps e) ρ i = eval-wk (keep w) e (ρ , i) []
-  eval-wk w (sels e e₁) ρ i = cong (eval (wk w e) ρ) (eval-wk w e₁ ρ)
-                              ∙ eval-wk w e ρ (eval e₁ (wk-env w ρ))
-  eval-wk w (imap′ refl e) ρ i = eval-wk (keep w) e (ρ , splitP i .proj₁) (splitP i .proj₂)
-  eval-wk w (sel′ refl e e₁) ρ i = cong (λ t → eval (wk w e) ρ (t ++ i)) (eval-wk w e₁ ρ)
-                             ∙ eval-wk w e ρ (eval e₁ (wk-env w ρ) ++ i)
-  eval-wk w (imapb x e) ρ i = eval-wk (keep w) e (ρ , ix-div i x) (ix-mod i x)
-  eval-wk w (selb x e e₁) ρ i = cong (λ t → eval (wk w e) ρ (ix-combine t i x)) (eval-wk w e₁ ρ)
-                                  ∙ eval-wk w e ρ (ix-combine (eval e₁ (wk-env w ρ)) i x)
-  eval-wk w (sum e) ρ i = sum-inv _+_ (fromℕ 0) {(λ i₁ → eval (wk (keep w) e) (ρ , i₁))} i
-                            ∙ sum-cong _+_ (fromℕ 0) (λ t → eval-wk (keep w) e (ρ , t) i)
-                            ∙ sym (sum-inv _+_ (fromℕ 0) {(λ i₁ → eval e (wk-env w ρ , i₁))} i)
-  eval-wk w (zero-but e e₁ e₂) ρ with eval-wk w e ρ | eval-wk w e₁ ρ
-                                    | eval (wk w e) ρ ≟ₚ eval (wk w e₁) ρ
-                                    | eval e (wk-env w ρ) ≟ₚ eval e₁ (wk-env w ρ)
-  ... | p | q | yes r | no rr = ⊥-elim (rr (sym p ∙ r ∙ q))
-  ... | p | q | yes r | yes rr = eval-wk w e₂ ρ
-  ... | p | q | no r  | yes rr = ⊥-elim (r (p ∙ rr ∙ sym q))
-  ... | p | q | no r  | no rr = λ i → refl
-  -- eval-wk w (E.slide e x e₁ x₁) ρ = Ar.slide-cong (eval-wk w e ρ) x x₁ (eval-wk w e₁ ρ)
-  -- eval-wk w (E.backslide e e₁ x x₁) ρ = Ar.backslide-cong (eval-wk w e ρ) (eval-wk w e₁ ρ) x (fromℕ 0) x₁
-  -- eval-wk w (logi e) ρ = Ar.map-cong logisticʳ (eval-wk w e ρ)
-  eval-wk w (e ⊞ e₁) ρ = zipWith-cong _+_ (eval-wk w e ρ) (eval-wk w e₁ ρ)
-  eval-wk w (e ⊠ e₁) ρ = zipWith-cong _*_ (eval-wk w e ρ) (eval-wk w e₁ ρ)
   eval-wk w (scaledown x e) ρ = Ar.map-cong (_÷ fromℕ x) (eval-wk w e ρ)
   eval-wk w (⊟ e) ρ = Ar.map-cong -_ (eval-wk w e ρ)
-  eval-wk w (let′ e e₁) ρ = eval-cong (wk (keep w) e₁){ν = ρ , eval e (wk-env w ρ)} (reflᶜ ▹ eval-wk w e ρ)
-                            ∙ˢ eval-wk (keep w) e₁ _
-  -- Jairo made
   eval-wk w (relu e) ρ = Ar.map-cong (_∨_ 0ᵣ) (eval-wk w e ρ)
   eval-wk w (𝕚+ e) ρ = Ar.map-cong I+ (eval-wk w e ρ)
   eval-wk w (√ e) ρ = Ar.map-cong √_ (eval-wk w e ρ)
   eval-wk w (𝟙/ e) ρ = Ar.map-cong 1/_ (eval-wk w e ρ)
   eval-wk w (ln e) ρ = Ar.map-cong log (eval-wk w e ρ)
-  eval-wk w (ℙ e) ρ i = cong₂ _÷_ (cong e^_ (eval-wk w e ρ i))
+  eval-wk w (softmax e) ρ i = cong₂ _÷_ (cong e^_ (eval-wk w e ρ i))
     (sum-cong _+_ _ {e^_ ∘ eval (wk w e) ρ} (cong e^_ ∘ eval-wk w e ρ))
+
+  eval-wk w (e ⊞ e₁) ρ = zipWith-cong _+_ (eval-wk w e ρ) (eval-wk w e₁ ρ)
+  eval-wk w (e ⊠ e₁) ρ = zipWith-cong _*_ (eval-wk w e ρ) (eval-wk w e₁ ρ)
+  eval-wk w (imaps e) ρ i = eval-wk (keep w) e (ρ , (λ _ → i)) []
+  eval-wk w (imap′ refl e) ρ i = eval-wk (keep w) e (ρ , λ _ → splitP i .proj₁) (splitP i .proj₂)
+  eval-wk w (imapb x e) ρ i = eval-wk (keep w) e (ρ , λ _ → ix-div i x) (ix-mod i x)
+  eval-wk w (sum′ refl e) ρ i = sum-inv _+_ (fromℕ 0) {(λ i₁ → eval (wk (keep w) e) (ρ , λ _ → i₁))} i
+                            ∙ sum-cong _+_ (fromℕ 0) (λ t → eval-wk (keep w) e (ρ , λ _ → t) i)
+                            ∙ sym (sum-inv _+_ (fromℕ 0) {(λ i₁ → eval e (wk-env w ρ , λ _ → i₁))} i)
+  eval-wk w (sels e e₁) ρ i = cong (eval (wk w e) ρ) (eval-wk w e₁ ρ [])
+                              ∙ eval-wk w e ρ (eval e₁ (wk-env w ρ) [])
+  eval-wk w (sel′ refl e e₁) ρ i = cong (λ t → eval (wk w e) ρ (t ++ i)) (eval-wk w e₁ ρ [])
+                             ∙ eval-wk w e ρ (eval e₁ (wk-env w ρ) [] ++ i)
+  eval-wk w (selb x e e₁) ρ i = cong (λ t → eval (wk w e) ρ (ix-combine t i x)) (eval-wk w e₁ ρ [])
+                                  ∙ eval-wk w e ρ (ix-combine (eval e₁ (wk-env w ρ) []) i x)
+  eval-wk w (zero-but e e₁ e₂) ρ with eval-wk w e ρ [] | eval-wk w e₁ ρ []
+                                    | eval (wk w e) ρ [] ≟ₚ eval (wk w e₁) ρ []
+                                    | eval e (wk-env w ρ) [] ≟ₚ eval e₁ (wk-env w ρ) []
+  ... | p | q | yes r | no rr = ⊥-elim (rr (sym p ∙ r ∙ q))
+  ... | p | q | yes r | yes rr = eval-wk w e₂ ρ
+  ... | p | q | no r  | yes rr = ⊥-elim (r (p ∙ rr ∙ sym q))
+  ... | p | q | no r  | no rr = λ i → refl
+  eval-wk w (let′ e e₁) ρ = eval-cong (wk (keep w) e₁){ν = ρ , eval e (wk-env w ρ)} (reflᶜ ▹ eval-wk w e ρ)
+                            ∙ˢ eval-wk (keep w) e₁ _
 
   sub-env-wks : (s : Sub Γ Δ) → (w : Γ ⊆ Ψ) → ∀ ρ → sub-env (wks s w) ρ ≈ᶜ sub-env s (wk-env w ρ)
   sub-env-wks ε w _ = ε
@@ -257,45 +244,40 @@ module Eval (r : Real) (rp : RealProp r) where
   eval-sub (var x) ρ s = eval-subv s ρ x
   eval-sub 𝟘 ρ s = reflᵃ
   eval-sub 𝟙 ρ s = reflᵃ
-  eval-sub (imaps e) ρ s i = eval-sub e (ρ , i) (skeep s) []
-                             ∙ eval-cong e (sub-env-sdrop _ ▹ refl) []
-  eval-sub (sels e e₁) ρ s [] = eval-sub e ρ s (eval (sub e₁ s) ρ)
-                                ∙ cong (eval e (sub-env s ρ)) (eval-sub e₁ ρ s)
+  eval-sub (imaps e) ρ s i = eval-sub e (ρ , λ _ → i) (skeep s) []
+                             ∙ eval-cong e (sub-env-sdrop _ ▹ λ _ → refl) []
+  eval-sub (sels e e₁) ρ s [] = eval-sub e ρ s (eval (sub e₁ s) ρ [])
+                                ∙ cong (eval e (sub-env s ρ)) (eval-sub e₁ ρ s [])
   eval-sub (mop {s = s} (imapₒ refl) e) ρ su i with splitP {s = s} i
-  ... | l , r = eval-sub e (ρ , l) _ r
-                ∙ eval-cong e ((sub-env-wks su (skip ⊆-eq)(ρ , l)
-                                ∙ᶜ sub-env-cong su wk-env-id) ▹ refl) r
-  eval-sub (sel′ refl e e₁) ρ s i = eval-sub e ρ s (eval (sub e₁ s) ρ ++ i)
-                              ∙ cong (λ t → eval e (sub-env s ρ) (t ++ i)) (eval-sub e₁ ρ s)
-  eval-sub (imapb x e) ρ s i = eval-sub e (ρ , ix-div i x) (wks s (skip ⊆-eq) ▹ var v₀) (ix-mod i x)
-                                 ∙ eval-cong e ((sub-env-wks s (skip ⊆-eq) (ρ , ix-div i x)
-                                                 ∙ᶜ sub-env-cong s wk-env-id) ▹ refl)
+  ... | l , r = eval-sub e (ρ , λ _ → l) _ r
+                ∙ eval-cong e ((sub-env-wks su (skip ⊆-eq)(ρ , λ _ → l)
+                                ∙ᶜ sub-env-cong su wk-env-id) ▹ λ _ → refl) r
+  eval-sub (sel′ refl e e₁) ρ s i = eval-sub e ρ s (eval (sub e₁ s) ρ [] ++ i)
+                              ∙ cong (λ t → eval e (sub-env s ρ) (t ++ i)) (eval-sub e₁ ρ s [])
+  eval-sub (imapb x e) ρ s i = eval-sub e (ρ , λ _ → ix-div i x) (wks s (skip ⊆-eq) ▹ var v₀) (ix-mod i x)
+                                 ∙ eval-cong e ((sub-env-wks s (skip ⊆-eq) (ρ , λ _ → ix-div i x)
+                                                 ∙ᶜ sub-env-cong s wk-env-id) ▹ λ _ → refl)
                                                (ix-mod i x)
-  eval-sub (selb x e e₁) ρ s i = eval-sub e ρ s (ix-combine (eval (sub e₁ s) ρ) i x)
+  eval-sub (selb x e e₁) ρ s i = eval-sub e ρ s (ix-combine (eval (sub e₁ s) ρ []) i x)
                                    ∙ cong (eval e (sub-env s ρ))
-                                          (cong (λ t → ix-combine t i x ) (eval-sub e₁ ρ s))
-  eval-sub (sum e) ρ s i = sum-inv _+_ (fromℕ 0) {(λ i₁ → eval (sub e (wks s (skip ⊆-eq) ▹ var v₀)) (ρ , i₁))} i
+                                          (cong (λ t → ix-combine t i x ) (eval-sub e₁ ρ s []))
+  eval-sub (sum′ refl e) ρ s i = sum-inv _+_ (fromℕ 0) {(λ i₁ → eval (sub e (wks s (skip ⊆-eq) ▹ var v₀)) (ρ , λ _ → i₁))} i
                              ∙ sum-cong _+_ (fromℕ 0)
-                                            {(λ j → eval (sub e (wks s (skip ⊆-eq) ▹ var v₀)) (ρ , j) i)}
-                                            (λ j → eval-sub e (ρ , j) ((wks s (skip ⊆-eq) ▹ var v₀)) i
-                                                   ∙ eval-cong e ((sub-env-wks s (skip ⊆-eq) (ρ , j)
-                                                                   ∙ᶜ sub-env-cong s wk-env-id) ▹ refl) i)
-                             ∙ sym (sum-inv _+_ (fromℕ 0){λ i₁ → eval e (sub-env s ρ , i₁)} i)
-  eval-sub (zero-but e e₁ e₂) ρ s i with eval (sub e s) ρ ≟ₚ eval (sub e₁ s) ρ
-                                       | eval-sub e ρ s | eval-sub e₁ ρ s
+                                            {(λ j → eval (sub e (wks s (skip ⊆-eq) ▹ var v₀)) (ρ , λ _ → j) i)}
+                                            (λ j → eval-sub e (ρ , λ _ → j) ((wks s (skip ⊆-eq) ▹ var v₀)) i
+                                                   ∙ eval-cong e ((sub-env-wks s (skip ⊆-eq) (ρ , λ _ → j)
+                                                                   ∙ᶜ sub-env-cong s wk-env-id) ▹ λ _ → refl) i)
+                             ∙ sym (sum-inv _+_ (fromℕ 0){λ i₁ → eval e (sub-env s ρ , λ _ → i₁)} i)
+  eval-sub (zero-but e e₁ e₂) ρ s i with eval (sub e s) ρ [] ≟ₚ eval (sub e₁ s) ρ []
+                                       | eval-sub e ρ s [] | eval-sub e₁ ρ s []
   eval-sub (zero-but e e₁ e₂) ρ s i | no ¬p  | q | w rewrite q | w
-                                                    with eval e (sub-env s ρ) ≟ₚ eval e₁ (sub-env s ρ)
+                                                    with eval e (sub-env s ρ) [] ≟ₚ eval e₁ (sub-env s ρ) []
   ... | yes p = ⊥-elim (¬p p)
   ... | no _ = refl
   eval-sub (zero-but e e₁ e₂) ρ s i | yes a | q | w rewrite q | w
-                                                    with eval e (sub-env s ρ) ≟ₚ eval e₁ (sub-env s ρ)
+                                                    with eval e (sub-env s ρ) [] ≟ₚ eval e₁ (sub-env s ρ) []
   ... | yes _ = eval-sub e₂ ρ s i
   ... | no ¬q = ⊥-elim (¬q a)
-  -- eval-sub (E.slide e x e₁ x₁) ρ s i rewrite eval-sub e ρ s = eval-sub e₁ ρ s ((_ ⊕′ i) x₁ x)
-  -- eval-sub (E.backslide e e₁ x x₁) ρ s i rewrite eval-sub e ρ s with (i ⊝′ eval e (sub-env s ρ)) x x₁
-  -- ... | yes (k , p) = eval-sub e₁ ρ s k
-  -- ... | no _ = refl
-  -- eval-sub (logi e) ρ s i = cong logisticʳ (eval-sub e ρ s i)
   eval-sub (e ⊞ e₁) ρ s i = cong₂ _+_ (eval-sub e ρ s i) (eval-sub e₁ ρ s i)
   eval-sub (e ⊠ e₁) ρ s i = cong₂ _*_ (eval-sub e ρ s i) (eval-sub e₁ ρ s i)
   eval-sub (scaledown x e) ρ s i = cong (_÷ fromℕ x) (eval-sub e ρ s i)
@@ -303,25 +285,18 @@ module Eval (r : Real) (rp : RealProp r) where
   eval-sub (let′ e e₁) ρ s i = eval-sub e₁ (ρ , eval (sub e s) ρ) ((wks s (skip ⊆-eq) ▹ var v₀)) i
                                ∙ eval-cong e₁ ((sub-env-wks s (skip ⊆-eq) (ρ , eval (sub e s) ρ)
                                                 ∙ᶜ sub-env-cong s wk-env-id) ▹ eval-sub e ρ s) i
-  -- Jairo made
   eval-sub (relu e) ρ s i = cong (_∨_ 0ᵣ) (eval-sub e ρ s i)
   eval-sub (𝕚+ e) ρ s i = cong I+ (eval-sub e ρ s i)
   eval-sub (√ e) ρ s i = cong √_ (eval-sub e ρ s i)
   eval-sub (𝟙/ e) ρ s i = cong 1/_ (eval-sub e ρ s i)
   eval-sub (ln e) ρ s i = cong log (eval-sub e ρ s i)
-  eval-sub (ℙ e) ρ s i = cong₂ _÷_ (cong e^_ (eval-sub e ρ s i))
+  eval-sub (softmax e) ρ s i = cong₂ _÷_ (cong e^_ (eval-sub e ρ s i))
     (sum-cong _+_ _ {e^_ ∘ eval (sub e s) ρ} (cong e^_ ∘ eval-sub e ρ s))
 
   eval-zb : (a : E Γ (ar s)) (i : E Γ (ix p)) → ∀ ρ → eval (zero-but i i a) ρ ≈ᵃ eval a ρ
-  eval-zb a i ρ with eval i ρ ≟ₚ eval i ρ
+  eval-zb a i ρ with eval i ρ [] ≟ₚ eval i ρ []
   ... | yes refl = λ _ → refl
   ... | no ¬p = ⊥-elim (¬p refl)
-
-  module Stren (rp : RealProp r) where
-    open RealProp rp
-    open WkSub hiding (_∙ˢ_)
-    open import Data.Maybe
-    open import Data.Maybe.Properties
 
   module ZeroBut where
 

@@ -88,11 +88,15 @@ class GPT(nn.Module):
         self.vocab_size = config.vocab_size
         self.n_embd = config.n_embd
         self.n_layer = config.n_layer
+
         self.token_embedding_table = nn.Embedding(config.vocab_size, config.n_embd)
         self.position_embedding_table = nn.Embedding(config.seq_size, config.n_embd)
         self.blocks = nn.Sequential(*[Block(config) for _ in range(config.n_layer)])
         self.lm_norm = nn.LayerNorm(config.n_embd, eps=1e-5, elementwise_affine= config.elementwise_affine)
         self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=True)
+
+        # Tied weights
+        # self.token_embedding_table.weight = self.lm_head.weight
 
         # Better init
         self.apply(self._init_weights)

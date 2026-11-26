@@ -5,7 +5,7 @@ module _ where
 module _ where
   open import Data.Nat using (ℕ; zero; suc)
   open import Data.List as L using (List; []; _∷_)
-  open import Ar hiding (sum; slide; backslide; imapb; selb)
+  open import Ar hiding (Ix ; sum; slide; backslide; imapb; selb)
   open import Relation.Binary.PropositionalEquality hiding ([_])
   open import Relation.Nullary
   open import Function
@@ -15,9 +15,16 @@ module _ where
         → x ≡ x₁ → y ≡ y₁ → z ≡ z₁ → f x y z ≡ f x₁ y₁ z₁
   cong₃ _ refl refl refl = refl
 
+  data BT : Set where
+    ℝ  : BT
+    ℙ : S → BT
+
   data IS : Set where
-    ix  : S → IS
-    ar  : S → IS
+    ar′ : S → BT → IS
+
+  pattern ari s p = ar′ s (ℙ p)
+  pattern ix s = ari [] s
+  pattern ar s = ar′ s ℝ
 
   data Ctx : Set where
     ε    : Ctx
@@ -26,6 +33,7 @@ module _ where
   variable
     Γ Δ Ξ Ψ : Ctx
     is ip iq ir : IS
+    A B  C : BT
 
   data _∈_ : IS → Ctx → Set where
     here  : is ∈ (Γ ▹ is)
@@ -71,7 +79,6 @@ module _ where
   ... | veq = veq
   ... | neq .x y = neq (there x) (there y)
 
-
   unthere : {x y : is ∈ Γ} → there {ip = ip} x ≡ there y → x ≡ y
   unthere refl = refl
 
@@ -84,9 +91,6 @@ module _ where
   infixl 10 _⊟_
   infixl 15 _⊠_
   -- infixl 15 _⊔_
-
-  unit : S
-  unit = []
 
   data Kop : Set where
     𝟘ₒ 𝟙ₒ : Kop
@@ -101,19 +105,19 @@ module _ where
       𝟙/ₒ
       𝕚+ₒ
       lnₒ
-      ℙₒ : Uop
+      softmaxₒ : Uop
     scₒ  : ℕ → Uop
   data Bop : Set where
     ⊞ₒ ⊠ₒ : Bop
 
-  data Mop   : S → S → S → Set where
-    imapsₒ : Mop s unit s
-    imapₒ  : q ≡ s ⊗ p → Mop s p q
-    imapbₒ : s * p ≈ q → Mop s p q
-    sumₒ   : Mop s p p
+  data Mop : BT → S → S → S → Set where
+    imapsₒ : Mop B s [] s
+    imapₒ  : q ≡ s ⊗ p → Mop B s p q
+    imapbₒ : s * p ≈ q → Mop B s p q
+    sumₒ   : B ≡ ℝ → Mop B s p p
 
   data Sop  : S → S → S → Set where
-    selsₒ : Sop s s unit
+    selsₒ : Sop s s []
     selₒ  : s ≡ p ⊗ q → Sop s p q
     selbₒ : p * q ≈ s → Sop s p q
 
@@ -124,8 +128,8 @@ module _ where
     uop        : Uop → E Γ (ar s) → E Γ (ar s)
     bop        : Bop → E Γ (ar s) → E Γ (ar s) → E Γ (ar s)
 
-    mop        : Mop s p q → E (Γ ▹ ix s) (ar p) → E Γ (ar q)
-    sop        : Sop s p q → E Γ (ar s) → E Γ (ix p) → E Γ (ar q)
+    mop        : Mop B s p q → E (Γ ▹ ix s) (ar′ p B) → E Γ (ar′ q B)
+    sop        : Sop s p q → E Γ (ar′ s B) → E Γ (ix p) → E Γ (ar′ q B)
 
     zero-but   : E Γ (ix s) → E Γ (ix s) → E Γ (ar p) → E Γ (ar p)
 
@@ -134,26 +138,26 @@ module _ where
   pattern 𝟙 {s = s} = kop {s = s} 𝟙ₒ
   pattern 𝟘 {s = s} = kop {s = s} 𝟘ₒ
 
-  pattern ⊟_ a = uop ⊟ₒ a
-  pattern √ a = uop √ₒ a
-  pattern 𝟙/   a = uop 𝟙/ₒ a
-  pattern relu a = uop reluₒ a
-  pattern ln   a = uop lnₒ a
-  pattern 𝕚+   a = uop 𝕚+ₒ a
-  pattern ℙ    a = uop ℙₒ a
+  pattern ⊟_    a = uop ⊟ₒ a
+  pattern √     a = uop √ₒ a
+  pattern 𝟙/    a = uop 𝟙/ₒ a
+  pattern relu  a = uop reluₒ a
+  pattern ln    a = uop lnₒ a
+  pattern 𝕚+    a = uop 𝕚+ₒ a
+  pattern softmax {s} a = uop {s = s} softmaxₒ a
   pattern scaledown n a = uop (scₒ n) a
 
   pattern _⊞_ a b = bop ⊞ₒ a b
   pattern _⊠_ a b = bop ⊠ₒ a b
 
-  pattern imaps {s = s} {p = p} {q = q} a =
-    mop {s = s} {p = p} {q = q} imapsₒ a
+  pattern imaps {B = B} {s = s} {p = p} {q = q} a =
+    mop {B = B} {s = s} {p = p} {q = q} imapsₒ a
   pattern imap′ {s = s} {p = p} {q = q} a b =
     mop {s = s} {p = p} {q = q} (imapₒ a) b
   pattern imapb {s = s} {p = p} {q = q} a b =
     mop {s = s} {p = p} {q = q} (imapbₒ a) b
-  pattern sum {s = s} {p = p} {q = q} a =
-    mop {s = s} {p = p} {q = q} sumₒ a
+  pattern sum′ {s = s} {p = p} {q = q} a b =
+    mop {s = s} {p = p} {q = q} (sumₒ a) b
 
   pattern sels {Γ = Γ} {s = s} {p = p} {q = q} a b =
     sop {s = s} {p = p} {q = q} {Γ = Γ} selsₒ a b
@@ -162,10 +166,13 @@ module _ where
   pattern selb {s = s} {p = p} {q = q} a b c =
     sop {s = s} {p = p} {q = q} (selbₒ a) b c
 
-  imap : E (Γ ▹ ix s) (ar p) → E Γ (ar (s ⊗ p))
+  imap : E (Γ ▹ ix s) (ar′ p B) → E Γ (ar′ (s ⊗ p) B)
   imap e = imap′ refl e
 
-  sel : E Γ (ar (s ⊗ p)) → E Γ (ix s) → E Γ (ar p)
+  sum : E (Γ ▹ ix s) (ar p) → E Γ (ar p)
+  sum e = sum′ refl e
+
+  sel : E Γ (ar′ (s ⊗ p) B) → E Γ (ix s) → E Γ (ar′ p B)
   sel e i = sel′ refl e i
 
   _⊟_ : ( a b : E Γ (ar s)) → E Γ (ar s)
@@ -307,7 +314,8 @@ module WkSub where
   sub-at-id (bop x e e₁) = cong₂ (bop x) (sub-at-id e) (sub-at-id e₁)
   sub-at-id (mop x e) = cong (mop x) (sub-at-id e)
   sub-at-id (sop x e e₁) = cong₂ (sop x) (sub-at-id e) (sub-at-id e₁)
-  sub-at-id (zero-but e e₁ e₂) = cong₃ zero-but (sub-at-id e) (sub-at-id e₁) (sub-at-id e₂)
+  sub-at-id (zero-but e e₁ e₂) =
+    cong₃ zero-but (sub-at-id e) (sub-at-id e₁) (sub-at-id e₂)
   sub-at-id (let′ e e₁) = cong₂ let′ (sub-at-id e) (sub-at-id e₁)
 
   sub-ε : (e : E ε is) → sub e ε ≡ e
@@ -411,8 +419,8 @@ module Syntax where
 
   -- Use GE GVar and V to define HOAS-style imap, imaps, and impab
   Imap : ∀ {Γ}
-       → (GE (Γ ▹ ix s) (ix s) → E (Γ ▹ ix s) (ar p))
-       → E Γ (ar (s ⊗ p))
+       → (GE (Γ ▹ ix s) (ix s) → E (Γ ▹ ix s) (ar′ p B))
+       → E Γ (ar′ (s ⊗ p) B)
   --Imap f = imap (f λ {Δ} ⦃ p ⦄ → var (V v₀))
   Imap f = imap (f (var (V v₀)))
 
@@ -421,20 +429,15 @@ module Syntax where
        → E Γ (ar p)
   Sum f = sum (f λ {Δ} ⦃ p ⦄ → var (V v₀))
 
-  -- Max : ∀ {Γ}
-  --      → (GE (Γ ▹ ix s) (ix s) → E (Γ ▹ ix s) (ar p))
-  --      → E Γ (ar p)
-  -- Max f = maximum (f λ {Δ} ⦃ p ⦄ → var (V v₀))
-
   Imaps : ∀ {Γ}
-        → (GE (Γ ▹ ix s) (ix s) → E (Γ ▹ ix s) (ar unit))
-        → E Γ (ar s)
+        → (GE (Γ ▹ ix s) (ix s) → E (Γ ▹ ix s) (ar′ [] B))
+        → E Γ (ar′ s B)
   Imaps f = imaps (f λ {Δ} ⦃ p ⦄ → var (V v₀))
 
   Imapb : ∀ {Γ}
         → s * p ≈ q
-        → (GE (Γ ▹ ix s) (ix s) → E (Γ ▹ ix s) (ar p))
-        → E Γ (ar q)
+        → (GE (Γ ▹ ix s) (ix s) → E (Γ ▹ ix s) (ar′ p B))
+        → E Γ (ar′ q B)
   Imapb p f = imapb p (f λ {Δ} ⦃ p ⦄ → var (V v₀))
 
   Let-syntax : ∀ {Γ}
@@ -485,9 +488,9 @@ module Primitives where
 
   open import Data.List as L using (List; []; _∷_)
   open import Data.Nat as ℕ using (ℕ; zero; suc)
-  open import Function using (_$_; it; _∋_)
+  open import Function using (flip; _$_; it; _∋_)
   open import Relation.Binary.PropositionalEquality hiding ([_])
-  open import Ar hiding (map; K; slide; selb; swap; sum)
+  open import Ar hiding (Ix; map; K; slide; selb; swap; sum)
   open Syntax
   open WkSub
 
@@ -520,9 +523,16 @@ module Primitives where
       → E Γ $ ar $ p ⊗ s → E Γ $ ar $ p ⊗ q
     map {p} f e = Imap {p} λ i → f (sel ⟨ e ⟩ i)
 
+    -- zipwith : ∀ {Γ}
+    --   → (E (Γ ▹ ix p) $ ar′ s A → E (Γ ▹ ix p) $ ar′ q B
+    --     → E (Γ ▹ ix p) $ ar′ r C)
+    --   → E Γ $ ar′ (p ⊗ s) A → E Γ $ ar′ (p ⊗ q) B → E Γ $ ar′ (p ⊗ r) C
+    -- zipwith {p} f a b = Imap {p} λ i → f (sel ⟨ a ⟩ i) (sel ⟨ b ⟩ i)
+
     zipwith : ∀ {Γ}
-      → (E (Γ ▹ ix p) $ ar s → E (Γ ▹ ix p) $ ar q → E (Γ ▹ ix p) $ ar r)
-      → E Γ $ ar $ p ⊗ s → E Γ $ ar $ p ⊗ q → E Γ $ ar $ p ⊗ r
+      → (E (Γ ▹ ix p) $ ar′ s A → E (Γ ▹ ix p) $ ar′ q B
+        → E (Γ ▹ ix p) $ ar′ r ℝ)
+      → E Γ $ ar′ (p ⊗ s) A → E Γ $ ar′ (p ⊗ q) B → E Γ $ ar′ (p ⊗ r) ℝ
     zipwith {p} f a b = Imap {p} λ i → f (sel ⟨ a ⟩ i) (sel ⟨ b ⟩ i)
 
     zipwith₃ : ∀ {Γ}
@@ -558,6 +568,12 @@ module Primitives where
       Imap {u} λ i → Imaps {r} λ j → Sum {s} λ k →
       sels ((sel ⟨ w1 ⟩ i) ⊠ (sel ⟨ w2 ⟩ j)) k
 
+    picks : ∀ {Γ} → E Γ (ar s) → E Γ (ari p s) → E Γ (ar p)
+    picks {s} {p} w is = Imaps λ i → sels ⟨ w ⟩ (sels ⟨ is ⟩ i)
+
+    pick : ∀ {Γ} → E Γ (ar (s ⊗ p)) → E Γ (ari q s) → E Γ (ar (q ⊗ p))
+    pick {s} {p} {q} w is = Imap {q} λ i → sel ⟨ w ⟩ (sels ⟨ is ⟩ i)
+
     mean : ∀ {Γ} → E Γ (ar s) → E Γ (ar [])
     mean {s} x = scaledown (len s) (Sum λ i → sels ⟨ x ⟩ i)
 
@@ -570,8 +586,10 @@ module Primitives where
       Let scale := √ (ms ⊞ (scaledown 100000 𝟙)) In
       ((Imaps λ i → (sels n i) // scale) ⊠ ⟨ w ⟩) ⊞ ⟨ b ⟩
 
-    m-rmsnorm : ∀ {Γ} → E Γ (ar p) → E Γ (ar p) → E Γ (ar (s ⊗ p)) → E Γ (ar (s ⊗ p))
-    m-rmsnorm {p} {s} {Γ} w b x = Imap {s} λ i → rmsnorm ⟨ w ⟩ ⟨ b ⟩ (sel ⟨ x ⟩ i)
+    m-rmsnorm : ∀ {Γ} → E Γ (ar p) → E Γ (ar p) → E Γ (ar (s ⊗ p))
+      → E Γ (ar (s ⊗ p))
+    m-rmsnorm {p} {s} {Γ} w b x = Imap {s} λ i →
+      rmsnorm ⟨ w ⟩ ⟨ b ⟩ (sel ⟨ x ⟩ i)
 
     split : s * p ≈ r → E Γ $ ar $ r → E Γ $ ar $ s ⊗ p
     split {s} eq x = Imap {s} λ i → selb eq ⟨ x ⟩ i
@@ -579,19 +597,23 @@ module Primitives where
     cat : s * p ≈ r → E Γ $ ar $ s ⊗ p → E Γ $ ar $ r
     cat eq x = Imapb eq λ i → sel ⟨ x ⟩ i
 
-    cross-entropy : ∀ {Γ} (target logits : E Γ (ar s)) → (E Γ (ar []))
-    cross-entropy {s} target probs =
-      (⊟ (Sum λ i → sels (ln ⟨ probs ⟩) i ⊠ sels ⟨ target ⟩ i))
-
-    avg : ∀ {Γ} → E Γ (ar s) → E Γ (ar [])
-    avg {s} x = scaledown (len s) (Sum λ i → sels ⟨ x ⟩ i)
+    attn : ∀ {Γ} → (sc : ℕ) →
+                  (mask : E Γ (ar (sl ⊗ sl)))
+                  (qs ks vs : E Γ (ar (sl ⊗ hd)))
+                → E Γ (ar (sl ⊗ hd))
+    attn {sl} {hd} {Γ} sc mask hq hk hv =
+      Let scores :=
+        map {sl} softmax (scaledown sc (matmult {sl} hq hk) ⊞ ⟨ mask ⟩) In
+      matmul {sl} scores ⟨ hv ⟩
 
     record GPTW (Γ : Ctx) (sl ed ah hd fd vo : S) : Set₁ where
       constructor gptw
       field
         -- the embedding dimension matches the number of heads
         att-eq : ah * hd ≈ ed
-        -- position embedding
+        -- token embedding table
+        wt : E Γ $ ar $ vo ⊗ ed
+        -- position embedding table
         wp : E Γ $ ar $ sl ⊗ ed
         -- attention normalization
         wa ba : E Γ $ ar $ ed
@@ -617,8 +639,10 @@ module Primitives where
 
     wk-gptp : Prefix Γ Δ → GPTW Γ sl ed ah hd fd vo → GPTW Δ sl ed ah hd fd vo
     wk-gptp pr p = record
-      { wp     = wk (fromPrefix pr) (p .wp)
-      ; att-eq = p .att-eq
+      {
+        att-eq = p .att-eq
+      ; wt     = wk (fromPrefix pr) (p .wt)
+      ; wp     = wk (fromPrefix pr) (p .wp)
       ; wa     = wk (fromPrefix pr) (p .wa)
       ; ba     = wk (fromPrefix pr) (p .ba)
       ; wqry   = wk (fromPrefix pr) (p .wqry)
@@ -649,20 +673,13 @@ module Primitives where
     ⟨_⟩ʷ : GPTW Γ sl ed ah hd fd vo → G-GPTW Γ sl ed ah hd fd vo
     ⟨_⟩ʷ p {Δ} ⦃ pf ⦄  = wk-gptp pf p
 
-    attn : ∀ {Γ} → (sc : ℕ) →
-                  (mask : E Γ (ar (sl ⊗ sl)))
-                  (qs ks vs : E Γ (ar (sl ⊗ hd)))
-                → E Γ (ar (sl ⊗ hd))
-    attn {sl} {hd} {Γ} sc mask hq hk hv =
-      Let scores := map {sl} ℙ (scaledown sc (matmult {sl} hq hk) ⊞ ⟨ mask ⟩) In
-      matmul {sl} scores ⟨ hv ⟩
-
     s-gpt-forward : ∀ {Γ} (sc : ℕ)
                 → GPTW Γ sl ed ah hd fd vo
-                → E Γ $ ar $ (sl ⊗ ed)
+                → E Γ (ari sl vo)
                 → E Γ $ ar $ (sl ⊗ vo)
-    s-gpt-forward {sl} {ed} {ah} {hd} {fd} {vo} sc θ ws =
-      Let x₀ := ((⟨ θ .wp ⟩ ⊞_) ws) In
+    s-gpt-forward {sl} {ed} {ah} {hd} {fd} {vo} sc θ ids =
+      Let ws := pick (θ .wt) ids In
+      Let x₀ := (⟨ θ .wp ⟩ ⊞ ws) In
       Let x₁ := (m-rmsnorm {s = sl} ⟨ θ .wa ⟩ ⟨ θ .ba ⟩) x₀ In
       Let q  := (map {sl} (linear ⟨ θ .wqry ⟩ ⟨ θ .bqry ⟩)) x₁ In
       Let k  := (map {sl} (linear ⟨ θ .wkey ⟩ ⟨ θ .bkey ⟩)) x₁ In
@@ -681,20 +698,29 @@ module Primitives where
 
     gpt-forward : ∀ {Γ} (sc : ℕ)
                 → GPTW Γ sl ed ah hd fd vo
-                → E Γ $ ar $ bs ⊗ (sl ⊗ ed)
+                → E Γ (ari (bs ⊗ sl) vo)
                 → E Γ $ ar $ bs ⊗ (sl ⊗ vo)
-    gpt-forward {sl} {ed} {ah} {hd} {fd} {vo} {bs} sc θ ws =
-      Imap {bs} λ i → s-gpt-forward sc ⟨ θ ⟩ʷ (sel ⟨ ws ⟩ i)
+    gpt-forward {sl} {ed} {ah} {hd} {fd} {vo} {bs} sc θ batch =
+      Imap {bs} λ i → s-gpt-forward sc ⟨ θ ⟩ʷ (sel ⟨ batch ⟩ i)
+
+    cross-entropy : ∀ {Γ} (sc : ℕ)
+                → GPTW Γ sl ed ah hd fd vo
+                → E Γ (ari (bs ⊗ sl) vo)
+                → E Γ (ari (bs ⊗ sl) vo)
+                → E Γ $ ar $ bs ⊗ sl
+    cross-entropy {sl} {ed} {ah} {hd} {fd} {vo} {bs} sc θ batch target =
+      Let logits := gpt-forward sc θ batch In
+      Let x₀ := map {bs} (map {sl} λ x → ⊟ (ln $ softmax x)) logits In
+      zipwith {bs}
+        (λ x y → Imaps λ i → picks (sel ⟨ x ⟩ i) (sels ⟨ y ⟩ i)) x₀ ⟨ target ⟩
 
     gpt-loss : ∀ {Γ} (sc : ℕ)
                 → GPTW Γ sl ed ah hd fd vo
-                → E Γ $ ar $ bs ⊗ (sl ⊗ ed)
-                → E Γ $ ar $ bs ⊗ (sl ⊗ vo)
-                → E Γ $ ar $ []
-    gpt-loss {sl} {ed} {ah} {hd} {fd} {vo} {bs} sc θ ws target =
-      Let logits := gpt-forward {bs = bs} sc θ ws In
-      Let l := ⟨ target ⟩ ⊠ map {bs} (map {sl} λ x → ⊟ (ln (ℙ x))) logits In
-      scaledown (len sl ℕ.* len bs) (Sum λ i → (sels l i))
+                → E Γ (ari (bs ⊗ sl) vo)
+                → E Γ (ari (bs ⊗ sl) vo)
+                → E Γ $ ar []
+    gpt-loss {sl} {ed} {ah} {hd} {fd} {vo} {bs} sc θ batch target =
+      Let losses := cross-entropy sc θ batch target In mean losses
 
     AH = [ 4 ] ; HD = [ 4 ] ; SL = [ 16 ] ; FD = [ 64 ] ; SC = 2
     VO = [ 27 ] ; BS = [ 1234 ] ; ED = [ 16 ]
@@ -704,7 +730,8 @@ module Primitives where
 
     gpt-forward-e : E _ _
     gpt-forward-e = Lcon (
-                    ar (SL ⊗ ED) --wp
+                    ar (VO ⊗ ED) --wt
+                  ∷ ar (SL ⊗ ED) --wp
                   ∷ ar ED --wa
                   ∷ ar ED --ba
                   ∷ ar (ED ⊗ ED) --wqry
@@ -726,15 +753,20 @@ module Primitives where
                   ∷ ar ED --bf
                   ∷ ar (VO ⊗ ED) --wc
                   ∷ ar VO --bc
-                  ∷ ar (BS ⊗ (SL ⊗ ED)) --ws
-                  ∷ []) (ar ((BS ⊗ SL) ⊗ VO) ) ε
-                  λ wp wa ba wqry wkey wval wo bqry bkey bval bo mask wm bm wu wd bu bd wf bf wc bc ws
-                  → let θ = gptw PR wp wa ba wqry wkey wval wo bqry bkey bval bo mask wm bm wu bu wd bd wf bf wc bc in
-                    gpt-forward {sl = SL} {vo = VO} {bs = BS} SC θ ws
+                  ∷ ari (BS ⊗ SL) VO --ids
+                  ∷ []) (ar (BS ⊗ (SL ⊗ VO))) ε
+                  λ wt wp wa ba wqry wkey wval wo bqry bkey bval bo mask wm bm
+                    wu wd bu bd wf bf wc bc ids
+                  → let
+                      θ = gptw PR wt wp wa ba wqry wkey wval wo bqry bkey bval
+                            bo mask wm bm wu bu wd bd wf bf wc bc
+                    in
+                    gpt-forward {sl = SL} {vo = VO} {bs = BS} SC θ ids
 
     gpt-loss-e : E _ _
     gpt-loss-e = Lcon (
-                    ar (SL ⊗ ED) --wp
+                    ar (VO ⊗ ED) --wt
+                  ∷ ar (SL ⊗ ED) --wp
                   ∷ ar ED --wa
                   ∷ ar ED --ba
                   ∷ ar (ED ⊗ ED) --wqry
@@ -756,58 +788,13 @@ module Primitives where
                   ∷ ar ED --bf
                   ∷ ar (VO ⊗ ED) --wc
                   ∷ ar VO --bc
-                  ∷ ar (BS ⊗ (SL ⊗ ED)) --ws
-                  ∷ ar ((BS ⊗ SL) ⊗ VO) --target
+                  ∷ ari (BS ⊗ SL) VO --ids
+                  ∷ ari (BS ⊗ SL) VO --target
                   ∷ []) (ar []) ε
-                  λ wp wa ba wqry wkey wval wo bqry bkey bval bo mask wm bm wu wd bu bd wf bf wc bc ws target
-                  → let θ = gptw PR wp wa ba wqry wkey wval wo bqry bkey bval bo mask wm bm wu bu wd bd wf bf wc bc in
-                    gpt-loss {sl = SL} {vo = VO} {bs = BS} SC θ ws target
-
-    -- gpt-forward-e : E _ _
-    -- gpt-forward-e = Lcon (
-    --                 ar (SL ⊗ ED) --wp
-    --               ∷ ar (ED ⊗ ED) --wqry
-    --               ∷ ar (ED ⊗ ED) --wkey
-    --               ∷ ar (ED ⊗ ED) --wval
-    --               ∷ ar (ED ⊗ ED) --wo
-    --               ∷ ar (SL ⊗ SL) --mask
-    --               ∷ ar (FD ⊗ ED) --wu
-    --               ∷ ar (ED ⊗ FD) --wd
-    --               ∷ ar (VO ⊗ ED) --wc
-    --               ∷ ar ED --bqry
-    --               ∷ ar ED --bkey
-    --               ∷ ar ED --bval
-    --               ∷ ar ED --bo
-    --               ∷ ar FD --bu
-    --               ∷ ar ED --bd
-    --               ∷ ar VO --bc
-    --               ∷ ar (BS ⊗ (SL ⊗ ED)) --ws
-    --               ∷ []) (ar ((BS ⊗ SL) ⊗ VO) ) ε
-    --               λ wp wqry wkey wval wo mask wu wd wc bqry bkey bval bo bu bd bc ws
-    --               → let θ = gptw PR wp 𝟙 𝟘 wqry wkey wval wo bqry bkey bval bo mask 𝟙 𝟘  wu bu wd bd 𝟙 𝟘 wc bc in
-    --                 gpt-forward {sl = SL} {vo = VO} {bs = BS} SC θ ws
-
-    -- gpt-loss-e : E _ _
-    -- gpt-loss-e = Lcon (
-    --                 ar (SL ⊗ ED) --wp
-    --               ∷ ar (ED ⊗ ED) --wqry
-    --               ∷ ar (ED ⊗ ED) --wkey
-    --               ∷ ar (ED ⊗ ED) --wval
-    --               ∷ ar (ED ⊗ ED) --wo
-    --               ∷ ar (SL ⊗ SL) --mask
-    --               ∷ ar (FD ⊗ ED) --wu
-    --               ∷ ar (ED ⊗ FD) --wd
-    --               ∷ ar (VO ⊗ ED) --wc
-    --               ∷ ar ED --bqry
-    --               ∷ ar ED --bkey
-    --               ∷ ar ED --bval
-    --               ∷ ar ED --bo
-    --               ∷ ar FD --bu
-    --               ∷ ar ED --bd
-    --               ∷ ar VO --bc
-    --               ∷ ar (BS ⊗ (SL ⊗ ED)) --ws
-    --               ∷ ar ((BS ⊗ SL) ⊗ VO) --target
-    --               ∷ []) (ar []) ε
-    --               λ wp wqry wkey wval wo mask wu wd wc bqry bkey bval bo bu bd bc ws target
-    --               → let θ = gptw PR wp 𝟙 𝟘 wqry wkey wval wo bqry bkey bval bo mask 𝟙 𝟘 wu bu wd bd 𝟙 𝟘 wc bc in
-    --                 gpt-loss {sl = SL} {vo = VO} {bs = BS} SC θ ws target
+                  λ wt wp wa ba wqry wkey wval wo bqry bkey bval bo mask wm bm
+                    wu wd bu bd wf bf wc bc ids target
+                  → let
+                      θ = gptw PR wt wp wa ba wqry wkey wval wo bqry bkey bval
+                            bo mask wm bm wu bu wd bd wf bf wc bc
+                    in
+                    gpt-loss {sl = SL} {vo = VO} {bs = BS} SC θ ids target
