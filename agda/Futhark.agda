@@ -112,23 +112,6 @@ module _ where
   to-imap : (s : S) → (i : Ix s) → (e : String) → String
   to-imap s i e = printf "(imap%u %s (\\%s -> %s))" (dim s) (shape-args s) (ix-join i " ") e
 
-  {-# TERMINATING #-} -- What is wrong with you, Agda?
-  sem-imap : Fut (ar s) → State ℕ String
-  sem-imap {s} (full f) with s
-  ... | [] = do
-    f , a ← f []
-    return (f a)
-  ... | s′ = do
-    iv ← fresh-ix s′
-    f , a ← f iv
-    return (f $ to-imap s′ iv a)
-
-  sem-imap {s} (part′ {p}{r} f refl) = do
-    iv ← fresh-ix p
-    h , a ← f iv
-    b ← sem-imap a
-    return (h $ to-imap p iv b)
-
   _⊗ⁱ_ : Ix s → Ix p → Ix (s Ar.⊗ p)
   [] ⊗ⁱ js = js
   (i ∷ is) ⊗ⁱ js = i ∷ (is ⊗ⁱ js)
@@ -171,7 +154,50 @@ module _ where
     let y = ix-map (λ st → (to-sel i st)) x
     let r = ix-map {p} (printf "[%s]") range-i
     return $ ix-zipwith _++_ y r
-    -- return $ ix-map (λ st → (to-sel i st)) x
+
+  {-# TERMINATING #-} -- What is wrong with you, Agda?
+  sem-imap′ : Fut (ar s) → State ℕ String
+  sem-imap′ {s} (full f) with s
+  ... | [] = do
+    f , a ← f []
+    return (f a)
+  ... | s′ = do
+    iv ← fresh-ix s′
+    f , a ← f iv
+    return (f $ to-imap s′ iv a)
+
+  sem-imap′ {s} (part′ {p}{r} f refl) = do
+    iv ← fresh-ix p
+    h , a ← f iv
+    b ← sem-imap′ a
+    return (h $ to-imap p iv b)
+
+  {-# TERMINATING #-} -- What is wrong with you, Agda?
+  sem-imap : Fut (ar′ s B) → State ℕ (Futᵇ B)
+  sem-imap {s} {ℝ} (full f) with s
+  ... | [] = do
+    f , a ← f []
+    return (f , a)
+  ... | s′ = do
+    iv ← fresh-ix s′
+    f , a ← f iv
+    return $ f ∘ to-imap s′ iv , a
+  sem-imap {s} {ℝ} (part′ {p}{r} f refl) = do
+    iv ← fresh-ix p
+    h , a ← f iv
+    g , b ← sem-imap a
+    -- CHECK
+    return $ h ∘ to-imap p iv , g b
+  sem-imap {s} {ℙ P} (full f) with s
+  ... | [] = do
+    a ← f []
+    -- CHECK
+    return a
+  ... | s′ = do
+    iv ← fresh-ix s′
+    a ← f iv
+    -- CHECK
+    return $ ix-map (to-imap s′ iv) a
 
   to-softmax : (s : S) → (i : Ix s) → (e : String) → String
   to-softmax [] i e = e
@@ -214,10 +240,15 @@ module _ where
   ix-curry : (Ix (s Ar.⊗ p) → X) → Ix s → Ix p → X
   ix-curry f i j = f (i ⊗ⁱ j)
 
+  ix-uncurry : (Ix s → Ix p → X) → Ix (s Ar.⊗ p) → X
+  ix-uncurry {s = s} f ij with splitⁱ {s} ij
+  ... | i , j , refl = f i j
+
   to-fut : E Γ (ar′ s B) → Futᶜ Γ → State ℕ (Fut $ ar′ s B)
   to-str : E Γ (ar s) → Futᶜ Γ → State ℕ String
 
-  to-str e ρ = to-fut e ρ >>= sem-imap
+  -- TODO: Define using sem-imap
+  to-str e ρ = to-fut e ρ >>= sem-imap′
 
   to-fut 𝟘 ρ = pure $ full λ _ → return (id , "zero")
   to-fut 𝟙 ρ = pure $ full λ _ → return (id , "one")
@@ -310,29 +341,35 @@ module _ where
         return (printf "(let %s = %s\nin %s)" n x ∘ f , v)
   to-fut (var x) ρ = return $ lookup x ρ
 
-  to-fut (imaps e) ρ = do
+  to-fut (sum′ {s = s} refl e) ρ = do
+    i ← fresh-ix s
+    b ← to-fut e (ρ , index i)
+    return $ full λ j → do
+      c ← sem-sum b i j
+      return (id , c)
+  to-fut (imaps {s = s} e) ρ = do
     return $ full λ i → do
       b ← to-fut e (ρ , index i)
       r ← sem-imap b
-      return $ id , r
-  to-fut (imap′ {s = s}{p} refl e) ρ = do
+      -- CHECK
+      return r
+  to-fut {B = ℝ} (imap′ {B} {s} {p} {_} refl e) ρ = do
     return $ part {s}{p} λ i → do
       b ← to-fut e (ρ , index i)
       return (id , b)
-  to-fut (imapb {s = s}{p = p}{q = q} pf e) ρ =
-    do
+  to-fut {B = ℙ r} (imap′ {B} {s} {p} {_} refl e) ρ = do
+    return $ full $ ix-uncurry {s} λ i j → do
+      full b ← to-fut e (ρ , index i)
+      b′ ← b j
+      -- Check
+      return b′
+  to-fut (imapb {s = s} {p = p} {q = q} pf e) ρ = do
     return $ full λ i → do -- is plain correct?
       let (j , k) = to-div-mod pf i
       b ← to-fut e (ρ , index j)
       r ← sem-sel-fut b k
       --CHECK
       return r
-  to-fut (sum {s = s} e) ρ = do
-    i ← fresh-ix s
-    b ← to-fut e (ρ , index i)
-    return $ full λ j → do
-      c ← sem-sum b i j
-      return (id , c)
 
   to-fut {s = s} {B} (sels e e₁) ρ = do
     a ← to-fut e ρ
@@ -381,6 +418,15 @@ instance
 infixl 5 _,,_
 _,,_ = _,′_
 
+test₁-e : E _ _
+test₁-e = Lcon (ar (5 ∷ 5 ∷ []) ∷ ari (3 ∷ []) (5 ∷ 5 ∷ []) ∷ []) (ar _) ε
+          λ w is → Imap λ i → sel w (sel (Imaps λ j → sels is j) i)
+
+test₁-s : String
+test₁-s = proj₂ (runState (to-str test₁-e ((_ , full (mkar "a")) , named-ix "id")) 0)
+-- Exp : imap[]
+-- Got : "(imap1 3 (\\i0 -> a[id[i0][0][i0][0]][id[i0][1][i0][1]]))"
+
 test₂-e : E _ _
 test₂-e = Lcon (ar (5 ∷ 5 ∷ []) ∷ ari (3 ∷ 3 ∷ []) (5 ∷ 5 ∷ []) ∷ []) (ar _) ε
           λ w is → Imap {3 ∷ 3 ∷ []} λ i → sel w (sel is i)
@@ -395,8 +441,8 @@ test₃-e = Lcon (ar (5 ∷ []) ∷ ari (3 ∷ []) (5 ∷ []) ∷ []) (ar (3 ∷
 
 test₃-s : String
 test₃-s = proj₂ (runState (to-str test₃-e ((_ , full (mkar "a")) , named-ix "id")) 0)
--- Exp: (imap1 3 (\\i0 -> a[i1[i0]]))
--- Got: (imap1 3 (\\i0 -> a[i1[i0]]))
+-- Exp: (imap1 3 (\\i0 -> a[id[i0][0]]))
+-- Got: (imap1 3 (\\i0 -> a[id[i0][0]]))
 
 -- Lets inside the summand must stay under the isum binder.
 test₄-e : E _ _
